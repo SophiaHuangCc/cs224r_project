@@ -13,3 +13,8 @@ stable-baselines3[extra]
 
 openai
 python-dotenv
+
+mani_skill
+mani_skill-nightly
+
+modal
