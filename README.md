@@ -92,6 +92,11 @@ stable-baselines3[extra]
 
 openai
 python-dotenv
+
+mani_skill
+mani_skill-nightly
+
+modal
 ```
 
 ---
@@ -119,6 +124,27 @@ python train_ppo_baseline.py
 ```bash
 python visualize_policy.py
 ```
+
+---
+
+## Alternative simulation: ManiSkill3 Locally (macOS)
+
+ManiSkill3 can run using CPU simulation and Vulkan-based rendering. Modal GPU simulation is also supported but no visualization available.
+
+### Install ManiSkill
+
+```bash
+pip install mani_skill torch
+
+### Test Local Rendering
+
+```bash
+python test_maniskill_local.py
+
+### Test Modal Rendering
+
+```bash
+python test_maniskill_modal.py
 
 ---
 
