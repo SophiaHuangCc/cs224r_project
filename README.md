@@ -127,7 +127,7 @@ python visualize_policy.py
 
 ---
 
-## Alternative simulation: ManiSkill3 Locally (macOS)
+## Alternative simulation: ManiSkill3
 
 ManiSkill3 can run using CPU simulation and Vulkan-based rendering. Modal GPU simulation is also supported but no visualization available.
 
@@ -135,16 +135,19 @@ ManiSkill3 can run using CPU simulation and Vulkan-based rendering. Modal GPU si
 
 ```bash
 pip install mani_skill torch
+```
 
 ### Test Local Rendering
 
 ```bash
 python test_maniskill_local.py
+```
 
 ### Test Modal Rendering
 
 ```bash
 python test_maniskill_modal.py
+```
 
 ---
 
@@ -196,6 +199,7 @@ Use PPO-Lagrangian to optimize task reward subject to safety constraints.
 
 - [x] Local Conda environment created
 - [x] MuJoCo + Gymnasium-Robotics installed
+- [x] Maniskill V3 installed
 - [x] PPO baseline training on FetchReach
 - [x] Visualization working
 - [ ] Custom reward wrapper
