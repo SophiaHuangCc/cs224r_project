@@ -1,0 +1,15 @@
+torch
+numpy
+matplotlib
+pandas
+tqdm
+wandb
+
+gymnasium
+gymnasium-robotics
+mujoco
+
+stable-baselines3[extra]
+
+openai
+python-dotenv
