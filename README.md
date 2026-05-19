@@ -222,7 +222,7 @@ Use PPO-Lagrangian to optimize task reward subject to safety constraints.
 - Generate rollout videos and visualizations
 - Run final training jobs on Modal
 
-### Partner (LLM Reward Generation / Safety Analysis)
+### Sunny (LLM Reward Generation / Safety Analysis)
 - Read and summarize Eureka reward generation pipeline
 - Design prompts for GPT-4o to generate reward functions
 - Generate and organize candidate reward code

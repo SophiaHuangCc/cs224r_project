@@ -1,0 +1,25 @@
+FetchReach Baseline Evaluation
+===============================
+
+Per-episode metrics:
+{'episode': 0, 'total_reward': -3.0, 'success': 1.0, 'mean_action_norm': 0.34377211332321167, 'max_action_norm': 1.4753814935684204, 'mean_delta_action_norm': 0.07107457894509207, 'max_delta_action_norm': 1.475381442284379, 'mean_gripper_speed': 0.0037090321324868276, 'max_gripper_speed': 0.047026137799969565, 'workspace_violation_rate': 0.0}
+{'episode': 1, 'total_reward': -3.0, 'success': 1.0, 'mean_action_norm': 0.15159466862678528, 'max_action_norm': 1.7322689294815063, 'mean_delta_action_norm': 0.0838899869406489, 'max_delta_action_norm': 1.7322689061310372, 'mean_gripper_speed': 0.004246898347712773, 'max_gripper_speed': 0.052855900638311, 'workspace_violation_rate': 0.0}
+{'episode': 2, 'total_reward': -3.0, 'success': 1.0, 'mean_action_norm': 0.11812112480401993, 'max_action_norm': 1.6394964456558228, 'mean_delta_action_norm': 0.07887548165728725, 'max_delta_action_norm': 1.6394963950895627, 'mean_gripper_speed': 0.003758969239507217, 'max_gripper_speed': 0.04998755359755865, 'workspace_violation_rate': 0.0}
+{'episode': 3, 'total_reward': -3.0, 'success': 1.0, 'mean_action_norm': 0.6482473015785217, 'max_action_norm': 1.6486296653747559, 'mean_delta_action_norm': 0.07728609147742374, 'max_delta_action_norm': 1.6486296806536764, 'mean_gripper_speed': 0.004082227577958083, 'max_gripper_speed': 0.05033988252048882, 'workspace_violation_rate': 0.0}
+{'episode': 4, 'total_reward': -2.0, 'success': 1.0, 'mean_action_norm': 0.4873613119125366, 'max_action_norm': 1.7323665618896484, 'mean_delta_action_norm': 0.07221700637733333, 'max_delta_action_norm': 1.7323665553272594, 'mean_gripper_speed': 0.0034044425191678846, 'max_gripper_speed': 0.052929403581422806, 'workspace_violation_rate': 0.0}
+{'episode': 5, 'total_reward': -2.0, 'success': 1.0, 'mean_action_norm': 0.11875855177640915, 'max_action_norm': 1.3533107042312622, 'mean_delta_action_norm': 0.06617138033969282, 'max_delta_action_norm': 1.3533106589365995, 'mean_gripper_speed': 0.003071175643547199, 'max_gripper_speed': 0.04119115058469912, 'workspace_violation_rate': 0.0}
+{'episode': 6, 'total_reward': -2.0, 'success': 1.0, 'mean_action_norm': 0.3239894509315491, 'max_action_norm': 1.7448387145996094, 'mean_delta_action_norm': 0.07567803039098911, 'max_delta_action_norm': 1.7448387254989044, 'mean_gripper_speed': 0.0035827586518148214, 'max_gripper_speed': 0.052863737767835095, 'workspace_violation_rate': 0.0}
+{'episode': 7, 'total_reward': 0.0, 'success': 1.0, 'mean_action_norm': 0.16388534009456635, 'max_action_norm': 1.2789491415023804, 'mean_delta_action_norm': 0.06252238698223965, 'max_delta_action_norm': 1.278949124395845, 'mean_gripper_speed': 0.0014607942401070905, 'max_gripper_speed': 0.03902257063436436, 'workspace_violation_rate': 0.0}
+{'episode': 8, 'total_reward': -2.0, 'success': 1.0, 'mean_action_norm': 0.121475450694561, 'max_action_norm': 1.4171217679977417, 'mean_delta_action_norm': 0.06420713669585848, 'max_delta_action_norm': 1.4171217529258564, 'mean_gripper_speed': 0.0032896667757482028, 'max_gripper_speed': 0.046260449690338976, 'workspace_violation_rate': 0.0}
+{'episode': 9, 'total_reward': -1.0, 'success': 1.0, 'mean_action_norm': 0.1942470222711563, 'max_action_norm': 1.7378954887390137, 'mean_delta_action_norm': 0.08373924665987172, 'max_delta_action_norm': 1.7378954545589083, 'mean_gripper_speed': 0.0027855372670323657, 'max_gripper_speed': 0.05292157901142568, 'workspace_violation_rate': 0.0}
+
+Average metrics:
+total_reward: -2.1000
+success: 1.0000
+mean_action_norm: 0.2671
+max_action_norm: 1.5760
+mean_delta_action_norm: 0.0736
+max_delta_action_norm: 1.5760
+mean_gripper_speed: 0.0033
+max_gripper_speed: 0.0485
+workspace_violation_rate: 0.0000
