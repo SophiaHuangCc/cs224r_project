@@ -193,7 +193,7 @@ Automatically append penalty terms for:
 
 Use PPO-Lagrangian to optimize task reward subject to safety constraints.
 
----
+<!-- ---
 
 ## Current Progress
 
@@ -205,7 +205,60 @@ Use PPO-Lagrangian to optimize task reward subject to safety constraints.
 - [ ] Custom reward wrapper
 - [ ] GPT-generated reward functions
 - [ ] Safety metric logging
-- [ ] Mitigation experiments
+- [ ] Mitigation experiments -->
+
+---
+
+## CS224R Project Work Split
+
+### Sophia (Robotics / RL Infrastructure)
+- Set up simulation environment (MuJoCo or ManiSkill)
+- Select benchmark tasks (Reach, Pick-and-Place, Fragile Pick)
+- Train PPO baseline using default reward
+- Implement safety metric logging:
+  - action magnitude
+  - joint velocity
+  - contact force (if available)
+- Generate rollout videos and visualizations
+- Run final training jobs on Modal
+
+### Partner (LLM Reward Generation / Safety Analysis)
+- Read and summarize Eureka reward generation pipeline
+- Design prompts for GPT-4o to generate reward functions
+- Generate and organize candidate reward code
+- Implement safety-aware prompting baseline
+- Implement mitigation methods:
+  - Physics-Grounded Constraint Augmentation (PGCA)
+  - Optional CMDP/PPO-Lagrangian if time permits
+- Analyze reward hacking failure cases
+
+### Joint Responsibilities
+- Define final evaluation metrics and thresholds
+- Decide which reward candidates to test
+- Compare success vs safety tradeoffs
+- Prepare figures, report, and presentation
+
+---
+
+## Project Checklist
+
+### Milestone: Infrastructure & LLM Rewards & Baseline
+- [ ] PPO baseline solves one manipulation task
+- [ ] Safety metrics are logged
+- [ ] Video rendering works locally and on Modal
+- [ ] GPT generates reward functions
+- [ ] Reward functions can be plugged into training
+- [ ] Safety-prompted rewards implemented
+- [ ] Baseline reward runs
+
+### Final: Deliverables
+- [ ] LLM reward runs
+- [ ] Mitigation runs
+- [ ] Aggregate metrics and plots
+- [ ] Select representative videos
+- [ ] Create plots and tables
+- [ ] Write final report
+- [ ] Prepare presentation
 
 ---
 
