@@ -10,6 +10,10 @@ os.makedirs("models", exist_ok=True)
 os.makedirs("logs", exist_ok=True)
 
 env = gym.make("FetchPickAndPlace-v4")
+# TODO: Add customized reward function here: 
+# Default from lib: reward = 0 if distance(object_pos, goal_pos) < threshold else -1
+
+### end ###
 env = Monitor(env)
 
 # FetchPickAndPlace is sparse-goal based
