@@ -53,6 +53,11 @@ def get_task_config(env_id):
             "task_desc": "Pick up a block from the table and place it at a target 3D position (which may be in the air).",
             "obs_keys": "observation, achieved_goal, desired_goal",
         },
+        "FetchSlide-v4": {
+            "task_name": "FetchSlide",
+            "task_desc": "Slide a puck across a table so that it reaches a target position beyond the robot's reach.",
+            "obs_keys": "observation, achieved_goal, desired_goal",
+        },
     }
     return configs[env_id]
 

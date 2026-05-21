@@ -1,0 +1,8 @@
+{
+  "success_rate": 0.0,
+  "mean_reward": -50.0,
+  "mean_action_mag": 1.7534712386131286,
+  "mean_jerk": 0.01471716571599245,
+  "max_action_mag": 1.8425651788711548,
+  "mean_ep_len": 50.0
+}

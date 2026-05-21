@@ -1,0 +1,38 @@
+[
+  {
+    "iteration": 1,
+    "reward_code": "def compute_reward(achieved_goal, desired_goal, obs, action, info):\n    import numpy as np\n    \n    # Calculate the Euclidean distance between the achieved goal and the desired goal.\n    distance = np.linalg.norm(achieved_goal - desired_goal)\n    \n    # Success threshold\n    success_threshold = 0.05\n    \n    # Reward shaping based on distance\n    reward = -distance  # Penalize the robot for being far away from the target.\n    \n    # Success bonus\n    if distance < success_threshold:\n        reward += 10.0  # Large bonus for achieving the goal.\n    \n    # Optional intermediate milestones: Encourage smaller distances more strongly\n    intermediate_thresholds = [0.5, 0.2, 0.1]\n    bonus_values = [1.0, 2.0, 4.0]\n    \n    for threshold, bonus in zip(intermediate_thresholds, bonus_values):\n        if distance < threshold:\n            reward += bonus\n    \n    return reward",
+    "metrics": {
+      "success_rate": 1.0,
+      "mean_reward": -6.679999828338623,
+      "mean_action_mag": 0.5259982579946518,
+      "mean_jerk": 0.011108911377377809,
+      "max_action_mag": 1.0999500751495361,
+      "mean_ep_len": 50.0
+    }
+  },
+  {
+    "iteration": 2,
+    "reward_code": "def compute_reward(achieved_goal, desired_goal, obs, action, info):\n    import numpy as np\n    \n    # Calculate the Euclidean distance between the achieved goal and the desired goal.\n    distance = np.linalg.norm(achieved_goal - desired_goal)\n    \n    # Success threshold\n    success_threshold = 0.05\n    \n    # Reward shaping based on distance\n    reward = -10 * distance  # Stronger penalty for being far away from the target.\n    \n    # Success bonus\n    if distance < success_threshold:\n        reward += 50.0  # Larger bonus for achieving the goal.\n    \n    # Optional intermediate milestones: Encourage faster convergence\n    intermediate_thresholds = [0.5, 0.2, 0.1]\n    bonus_values = [5.0, 10.0, 20.0]\n    \n    for threshold, bonus in zip(intermediate_thresholds, bonus_values):\n        if distance < threshold:\n            reward += bonus\n    \n    return reward",
+    "metrics": {
+      "success_rate": 0.1599999964237213,
+      "mean_reward": -45.400001525878906,
+      "mean_action_mag": 0.22498469561338424,
+      "mean_jerk": 0.00259334962698631,
+      "max_action_mag": 0.38043010234832764,
+      "mean_ep_len": 50.0
+    }
+  },
+  {
+    "iteration": 3,
+    "reward_code": "def compute_reward(achieved_goal, desired_goal, obs, action, info):\n    import numpy as np\n    \n    # Calculate the Euclidean distance between the achieved goal and the desired goal.\n    distance = np.linalg.norm(achieved_goal - desired_goal)\n    \n    # Success threshold\n    success_threshold = 0.05\n    \n    # Reward shaping based on distance\n    reward = -5 * distance  # Reduce penalty to make shaping more forgiving.\n    \n    # Success bonus\n    if distance < success_threshold:\n        reward = 100.0  # Large positive reward for achieving the goal.\n        return reward  # Early exit for success.\n    \n    # Optional intermediate milestones: Encourage faster convergence\n    intermediate_thresholds = [0.5, 0.2, 0.1]\n    bonus_values = [10.0, 15.0, 25.0]\n    \n    for threshold, bonus in zip(intermediate_thresholds, bonus_values):\n        if distance < threshold:\n            reward += bonus\n    \n    # Penalize episode length indirectly by penalizing actions\n    action_penalty = -0.01 * np.sum(np.square(action))  # Discourage large, inefficient actions.\n    reward += action_penalty\n    \n    return reward",
+    "metrics": {
+      "success_rate": 0.18000000715255737,
+      "mean_reward": -47.720001220703125,
+      "mean_action_mag": 0.05865231167525053,
+      "mean_jerk": 0.0009254787911777384,
+      "max_action_mag": 0.1436900943517685,
+      "mean_ep_len": 50.0
+    }
+  }
+]
