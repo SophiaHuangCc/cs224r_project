@@ -8,11 +8,20 @@ import gymnasium_robotics  # noqa: F401 — registers Fetch envs
 import numpy as np
 from openai import AzureOpenAI
 
-client = AzureOpenAI(
-    azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-    api_key=os.environ["AZURE_OPENAI_API_KEY"],
-    api_version="2024-12-01-preview",
-)
+# Lazily instantiated so that downstream training scripts (which only need
+# `compile_reward_fn` / `VanillaLLMRewardWrapper`) don't require Azure creds.
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = AzureOpenAI(
+            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+            api_key=os.environ["AZURE_OPENAI_API_KEY"],
+            api_version="2024-12-01-preview",
+        )
+    return _client
 
 TASK_PROMPT_TEMPLATE = """You are a reward function designer for robotic manipulation tasks.
 
@@ -83,7 +92,7 @@ def generate_reward_function(env_id: str, model: str = None) -> str:
         action_shape=action_space.shape,
     )
 
-    response = client.chat.completions.create(
+    response = _get_client().chat.completions.create(
         model=model or DEFAULT_DEPLOYMENT,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
