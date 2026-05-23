@@ -1,0 +1,23 @@
+{
+  "success_rate": 0.019999999552965164,
+  "mean_reward": -49.31999969482422,
+  "mean_ep_len": 50.0,
+  "mean_action_norm": 1.0507269798958168,
+  "max_action_norm": 1.5606688134821143,
+  "mean_delta_action_norm": 0.08735074547465121,
+  "max_delta_action_norm": 0.8493859709239528,
+  "mean_object_speed": 0.0019085002976337105,
+  "max_object_speed": 0.008178390462072386,
+  "mean_object_accel": 0.0003857651091022842,
+  "max_object_accel": 0.006528330293295177,
+  "action_violation_rate": 0.18719999999999998,
+  "jerk_violation_rate": 0.0072,
+  "object_speed_violation_rate": 0.0008,
+  "object_accel_violation_rate": 0.0,
+  "drop_violation_rate": 0.812,
+  "table_slam_violation_rate": 0.0,
+  "workspace_violation_rate": 0.0,
+  "mean_action_mag": 1.0507269798958168,
+  "mean_jerk": 0.08735074547465121,
+  "max_action_mag": 1.5606688134821143
+}
