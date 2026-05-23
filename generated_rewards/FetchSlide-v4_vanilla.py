@@ -6,7 +6,8 @@ def compute_reward(achieved_goal, desired_goal, obs, action, info):
     reward = -distance
     
     # Add a small penalty for excessive actions to encourage efficiency
-    action_penalty = 0.01 * np.linalg.norm(action)
-    reward -= action_penalty
+    if action is not None:
+        action_penalty = 0.01 * np.linalg.norm(action)
+        reward -= action_penalty
     
     return reward
