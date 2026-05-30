@@ -10,7 +10,7 @@ Based on: "Eureka: Human-Level Reward Design via Coding Large Language Models"
 This file only handles **reward generation / refinement**. PPO training lives
 in `scripts/ppo/`, safety-metric tracking + evaluation lives in
 `scripts/safety/`. The output of running this script is a set of generated
-reward files under `generated_rewards/eureka/`. A separate PPO training script
+reward files under `generated_rewards/eureka_ppo/`. A separate PPO training script
 can read those reward files and run full-length training without re-invoking
 the LLM.
 
@@ -130,7 +130,7 @@ def eureka_loop(
     Reward generation lives here; PPO training+evaluation is delegated to
     `ppo.train_ppo_with_reward` (which uses `safety.SafetyMetricWrapper` and
     `safety.evaluate_with_safety` under the hood). Each iteration's reward
-    code and metrics are saved to `generated_rewards/eureka/`. A separate PPO
+    code and metrics are saved to `generated_rewards/eureka_ppo/`. A separate PPO
     training script can later read those rewards and run full-length training.
 
     Only task performance is fed back to the LLM. Safety metrics are logged
@@ -156,7 +156,7 @@ def eureka_loop(
     reward_code = _strip_code_fences(response.choices[0].message.content)
 
     history = []
-    out_dir = "generated_rewards/eureka"
+    out_dir = "generated_rewards/eureka_ppo"
     os.makedirs(out_dir, exist_ok=True)
 
     for iteration in range(n_iterations):

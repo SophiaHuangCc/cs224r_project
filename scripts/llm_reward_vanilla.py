@@ -111,7 +111,10 @@ def generate_reward_function(env_id: str, model: str = None) -> str:
 
 
 def compile_reward_fn(code_str: str):
-    """Compile LLM-generated code into a callable."""
+    """Compile LLM-generated code into a callable.
+    
+    Validates that the function has return statements in all paths (best-effort).
+    """
     # Wrap in function definition if not already
     if not code_str.strip().startswith("def compute_reward"):
         code_str = (
@@ -121,7 +124,35 @@ def compile_reward_fn(code_str: str):
 
     namespace = {"np": np}
     exec(code_str, namespace)
-    return namespace["compute_reward"]
+    reward_fn = namespace["compute_reward"]
+    
+    # Quick validation: check that function has return statements in non-trivial paths
+    # (without actually executing, to avoid type errors in generated code that try to
+    # access fields that don't exist like obs[-3:])
+    try:
+        # Test only with simple scalars that shouldn't fail
+        test_result = reward_fn(
+            achieved_goal=np.array([0.0]),
+            desired_goal=np.array([0.0]),
+            obs=None,  # Pass None to avoid indexing errors
+            action=None,
+            info={},
+        )
+        if test_result is None:
+            raise ValueError("Reward function returned None. All code paths must explicitly return a float.")
+        if not isinstance(test_result, (int, float, np.number)):
+            raise ValueError(f"Reward function returned {type(test_result)}, expected float. Got: {test_result}")
+    except TypeError as e:
+        # Catch indexing errors (e.g., obs[-3:] when obs is None) but continue
+        # The real error will be caught during training
+        if "NoneType" in str(e):
+            print(f"  Warning: Reward function uses obs/action fields (OK, will validate at training)")
+        else:
+            raise
+    except Exception as e:
+        raise RuntimeError(f"Reward function validation failed: {e}\n\nFunction code:\n{code_str}") from e
+    
+    return reward_fn
 
 
 class VanillaLLMRewardWrapper(gym.Wrapper):

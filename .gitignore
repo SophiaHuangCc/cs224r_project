@@ -1,3 +1,6 @@
 .env
 DESIGN.md
 __pycache__
+.DS_Store
+*.log
+logs/*.log
