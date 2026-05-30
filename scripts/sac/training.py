@@ -138,8 +138,9 @@ def train_sac_her_with_reward(
     model.learn(total_timesteps=timesteps)
 
     # Evaluate on the original env (true task reward) with safety logging
+    # Pass reward_fn to compute hacking_rate (proxy reward vs ground-truth success)
     eval_env = SafetyMetricWrapper(gym.make(env_id))
-    metrics = evaluate_with_safety(model, eval_env, n_episodes=eval_episodes)
+    metrics = evaluate_with_safety(model, eval_env, n_episodes=eval_episodes, reward_fn=reward_fn)
 
     if save_path is not None:
         os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)

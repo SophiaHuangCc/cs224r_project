@@ -40,11 +40,11 @@ for env_id in TASKS:
     print(f"Best iteration: {best_iter['iteration']} (success={best_iter['metrics']['success_rate']:.1%})")
 
     # Save best reward separately for easy PPO training later
-    os.makedirs("generated_rewards/eureka", exist_ok=True)
-    with open(f"generated_rewards/eureka/{env_id}_best.py", "w") as f:
+    os.makedirs("generated_rewards/eureka_ppo", exist_ok=True)
+    with open(f"generated_rewards/eureka_ppo/{env_id}_best.py", "w") as f:
         f.write(best_iter["reward_code"])
-    with open(f"generated_rewards/eureka/{env_id}_best_metrics.json", "w") as f:
+    with open(f"generated_rewards/eureka_ppo/{env_id}_best_metrics.json", "w") as f:
         json.dump(best_iter["metrics"], f, indent=2)
 
 print("\n\n✅ All Eureka runs complete!")
-print("Best rewards saved to generated_rewards/eureka/<task>_best.py")
+print("Best rewards saved to generated_rewards/eureka_ppo/<task>_best.py")

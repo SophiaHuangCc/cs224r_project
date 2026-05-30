@@ -1,0 +1,7 @@
+{
+  "env_id": "FetchPickAndPlace-v4",
+  "n": 3,
+  "eureka_iters": 3,
+  "timesteps_per_iter": 50000,
+  "method": "independent_eureka_loops_sac_her"
+}

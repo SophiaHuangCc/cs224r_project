@@ -54,11 +54,11 @@ vol = modal.Volume.from_name("cs224r-sac-results", create_if_missing=True)
 # ---------------------------------------------------------------------------
 SCENARIOS = [
     ("FetchReach-v4", "generated_rewards/FetchReach-v4_vanilla.py", "FetchReach_vanilla"),
-    ("FetchReach-v4", "generated_rewards/eureka/FetchReach-v4_iter1.py", "FetchReach_eureka"),
+    ("FetchReach-v4", "generated_rewards/eureka_ppo/FetchReach-v4_iter1.py", "FetchReach_eureka"),
     ("FetchPickAndPlace-v4", "generated_rewards/FetchPickAndPlace-v4_vanilla.py", "FetchPickAndPlace_vanilla"),
-    ("FetchPickAndPlace-v4", "generated_rewards/eureka/FetchPickAndPlace-v4_best.py", "FetchPickAndPlace_eureka"),
+    ("FetchPickAndPlace-v4", "generated_rewards/eureka_ppo/FetchPickAndPlace-v4_best.py", "FetchPickAndPlace_eureka"),
     ("FetchSlide-v4", "generated_rewards/FetchSlide-v4_vanilla.py", "FetchSlide_vanilla"),
-    ("FetchSlide-v4", "generated_rewards/eureka/FetchSlide-v4_best.py", "FetchSlide_eureka"),
+    ("FetchSlide-v4", "generated_rewards/eureka_ppo/FetchSlide-v4_best.py", "FetchSlide_eureka"),
 ]
 
 STEP_COUNTS = [250_000, 500_000]

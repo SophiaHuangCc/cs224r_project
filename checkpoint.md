@@ -1,203 +1,151 @@
-# Checkpoint: SAC+HER Safety Metrics Experiment
+# Checkpoint: Reward Overoptimization in Robotic Manipulation
 
-**Date:** 2026-05-25 (updated)
-**Project:** CS224R — Reward Overoptimization in Robotic Manipulation
-
----
-
-## Experiment Setup
-
-- **Algorithm:** SAC + HER (Hindsight Experience Replay)
-- **Environments:** FetchReach-v4, FetchPickAndPlace-v4, FetchSlide-v4
-- **Reward types:** Vanilla (single-shot LLM-generated) vs Eureka (iteratively optimized LLM reward)
-- **Step counts:** 50k, 100k, 250k, 500k
-- **Eval episodes:** 50 per checkpoint
-- **Compute:** Modal (4 CPU cores, 8GB RAM per container, 12 parallel jobs)
-- **Safety metrics:** action violations, jerk violations, object speed/accel violations, drop rate, table slam, workspace violations
-
-### Reward Files
-| Env | Vanilla | Eureka |
-|-----|---------|--------|
-| FetchReach-v4 | `generated_rewards/FetchReach-v4_vanilla.py` | `generated_rewards/eureka/FetchReach-v4_iter1.py` |
-| FetchPickAndPlace-v4 | `generated_rewards/FetchPickAndPlace-v4_vanilla.py` | `generated_rewards/eureka/FetchPickAndPlace-v4_best.py` |
-| FetchSlide-v4 | `generated_rewards/FetchSlide-v4_vanilla.py` | `generated_rewards/eureka/FetchSlide-v4_best.py` |
+**Date:** 2026-05-30
+**Project:** CS224R Final Project — Sunny Yuan & Sophia Huang
 
 ---
 
-## Results Summary
+## Methods
 
-### Success Rates
-
-| Env + Reward | 50k | 100k | 250k | 500k |
-|---|---|---|---|---|
-| FetchReach vanilla | 1.00 | 1.00 | 1.00 | 1.00 |
-| FetchReach eureka | 1.00* | 1.00 | 1.00 | 1.00 |
-| FetchPickAndPlace vanilla | 0.05* | 0.02 | 0.10 | **0.46** |
-| FetchPickAndPlace eureka | 0.05* | 0.02 | 0.12 | **0.06** |
-| FetchSlide vanilla | 0.00* | 0.02 | 0.14 | 0.16 |
-| FetchSlide eureka | 0.00* | 0.00 | 0.04 | **0.40** |
-
-*50k values from `sac_smoke_50k` (basic metrics only, no safety metrics are included)
-
-### Key Safety Metrics at 250k
-
-#### FetchReach (both 100% success — controlled comparison)
-
-| Metric | Vanilla | Eureka | Ratio |
-|--------|---------|--------|-------|
-| success_rate | 100.0% | 100.0% | 1.0× |
-| action_violation_rate | 3.4% | 3.8% | 1.1× |
-| jerk_violation_rate | **0.4%** | **2.1%** | **5.3×** |
-| mean_jerk | 0.050 | 0.061 | 1.2× |
-| drop_violation_rate | 11.3% | 7.8% | 0.7× |
-
-#### FetchPickAndPlace (10% vs 12% success — similar performance)
-
-| Metric | Vanilla | Eureka | Ratio |
-|--------|---------|--------|-------|
-| success_rate | **10.0%** | **12.0%** | **1.2×** |
-| action_violation_rate | 40.0% | 41.4% | 1.0× |
-| jerk_violation_rate | **17.0%** | **22.8%** | **1.3×** |
-| mean_jerk | **0.427** | **0.585** | **1.4×** |
-| drop_violation_rate | **0.7%** | **2.2%** | **3.1×** |
-
-#### FetchSlide (14% vs 4% success — EUREKA WORSE 🎯)
-
-| Metric | Vanilla | Eureka | Ratio |
-|--------|---------|--------|-------|
-| success_rate | **14.0%** | **4.0%** | **0.29×** |
-| action_violation_rate | **12.8%** | **27.4%** | **2.1×** |
-| jerk_violation_rate | **13.4%** | **21.7%** | **1.6×** |
-| mean_jerk | **0.374** | **0.587** | **1.6×** |
-| drop_violation_rate | **41.6%** | **64.6%** | **1.6×** |
-
-### Key Safety Metrics at 500k
-
-#### FetchReach (both 100% success)
-
-| Metric | Vanilla | Eureka | Ratio |
-|--------|---------|--------|-------|
-| success_rate | 100.0% | 100.0% | 1.0× |
-| action_violation_rate | 2.0% | 3.1% | 1.6× |
-| jerk_violation_rate | **0.5%** | **2.3%** | **4.8×** |
-| mean_jerk | 0.043 | 0.059 | 1.4× |
-| drop_violation_rate | 5.6% | 19.0% | 3.4× |
-
-#### FetchPickAndPlace (46% vs 6% success — EUREKA COLLAPSED 🎯🎯)
-
-| Metric | Vanilla | Eureka | Ratio |
-|--------|---------|--------|-------|
-| success_rate | **46.0%** | **6.0%** | **0.13×** |
-| action_violation_rate | **34.7%** | **56.2%** | **1.6×** |
-| jerk_violation_rate | **37.7%** | **42.0%** | **1.1×** |
-| mean_jerk | **0.899** | **1.102** | **1.2×** |
-| drop_violation_rate | 7.3% | 5.0% | 0.7× |
-
-#### FetchSlide (16% vs 40% success — eureka recovered task but unsafe)
-
-| Metric | Vanilla | Eureka | Ratio |
-|--------|---------|--------|-------|
-| success_rate | 16.0% | **40.0%** | 2.5× |
-| action_violation_rate | 17.2% | **24.5%** | **1.4×** |
-| jerk_violation_rate | 8.8% | **14.5%** | **1.6×** |
-| mean_jerk | 0.333 | **0.460** | **1.4×** |
-| drop_violation_rate | 41.9% | 42.6% | 1.0× |
+| # | Method | How reward is generated | How policy is trained | Notes |
+|---|--------|------------------------|----------------------|-------|
+| 1 | **Vanilla LLM** | GPT-4o single-shot, one reward function | SAC+HER | Baseline LLM reward |
+| 2 | **Eureka (PPO)** | GPT-4o iterative (3 iters × 50k PPO eval) | SAC+HER | Reward from PPO loop, but trained with SAC+HER. Buggy HER wrapper. |
+| 3 | **Eureka (SAC+HER)** | GPT-4o iterative (3 iters × 50k SAC+HER eval) | SAC+HER | Fixed HER-aware wrapper. Best single-reward method. |
+| 4 | **Ensemble (min, N=3)** | 3× independent Eureka SAC+HER loops → min-aggregate | SAC+HER | Mitigation attempt. |
 
 ---
 
-## Findings
+## Results: FetchReach-v4 (Easy)
 
-### 1. Eureka consistently produces jerkier, more unsafe policies
-Across all three environments and ALL step counts (100k→500k), eureka-trained policies exhibit higher jerk violation rates and mean jerk magnitudes. This holds even when success rates are identical (FetchReach) or when eureka achieves higher success (FetchSlide@500k).
+| Method | 100k | 250k | 500k | Hacking | Action Viol | Jerk Viol |
+|--------|------|------|------|---------|-------------|-----------|
+| Vanilla LLM | 100% | 100% | 100% | 0% | 2-3% | 0.5% |
+| Eureka (PPO reward) | 100% | 100% | 100% | 0% | 3-4% | 1.5-2.3% |
+| Eureka (SAC+HER) | 100% | 100% | 100% | 0% | 3.3% | 1.7-1.8% |
+| Ensemble (min N=3) | 100% | 100% | 100% | 0% | 2.6-3.3% | 1.6-1.8% |
 
-### 2. FetchPickAndPlace: textbook reward overoptimization divergence
-The strongest result. At 250k both methods had ~10-12% success. By 500k, vanilla improved to **46%** while eureka COLLAPSED to **6%** — more training made eureka *worse*. Meanwhile eureka's action violations grew to 56% (vs vanilla's 35%). This is the classic Goodhart's Law curve: the proxy reward diverges from the true objective with more optimization pressure.
-
-### 3. FetchSlide: eureka achieves task success through unsafe behavior
-At 500k, eureka actually solved the task better (40% vs 16%) BUT with 1.4× more action violations and 1.6× more jerk. The eureka reward learned an aggressive strategy (slam puck hard) that sometimes works but is physically dangerous. This demonstrates that **reward overoptimization doesn't always reduce task performance** — sometimes it finds unsafe shortcuts that happen to succeed.
-
-### 4. Two failure modes of LLM reward overoptimization
-- **Mode A (PickAndPlace):** Proxy reward diverges → policy gets stuck exploiting reward loopholes → task performance collapses
-- **Mode B (Slide):** Proxy reward converges via unsafe path → task succeeds through dangerous behavior → safety degrades
-
-### 5. Divergence grows with training steps
-The vanilla-vs-eureka safety gap consistently grows from 100k → 250k → 500k across all environments. This confirms the overoptimization scaling hypothesis from Gao et al. 2022 applied to embodied domains.
+**Takeaway:** Trivially solved by all SAC methods. PPO eureka fails even here. Eureka rewards consistently produce slightly higher jerk than vanilla (1.5-2× jerk violation rate) — early signal of aggressive optimization.
 
 ---
 
+## Results: FetchPickAndPlace-v4 (Medium)
+
+| Method | 100k | 250k | 500k | Hacking 100k | Hacking 250k | Hacking 500k |
+|--------|------|------|------|-------------|-------------|-------------|
+| Vanilla LLM | 2% | 10% | **46%** | 44% | 44% | **2%** |
+| Eureka (PPO reward) | 2% | 12% | **6%** ⚠️ | 38% | 40% | **42%** 🎯 |
+| Eureka (SAC+HER) | 3% | 17% | **49%** | 0% | 0% | 0% |
+| Ensemble (min N=3) | 5% | 7% | **1%** ⚠️ | 0% | 0% | 0% |
+
+**Safety metrics at 500k:**
+
+| Method | Action Mag | Jerk | Action Viol | Jerk Viol | Drop Viol |
+|--------|-----------|------|-------------|-----------|-----------|
+| Vanilla LLM | 1.220 | 0.899 | 34.7% | 37.7% | 7.3% |
+| Eureka (PPO reward) | 1.450 | 1.102 | 56.2% | 42.0% | 5.0% |
+| Eureka (SAC+HER) | 1.033 | 0.706 | 17.7% | 30.6% | 4.0% |
+| Ensemble (min N=3) | 0.987 | 0.018 | 5.2% | 0.0% | 0.0% |
+
+**Key findings:**
+1. **Eureka (PPO reward) = textbook Goodhart divergence.** Hacking increases with training (38→42%) and success *collapses* to 6%. The buggy HER wrapper made this worse but the pattern is real.
+2. **Eureka (SAC+HER) = best method.** 49% success, 0% hacking, lower safety violations than vanilla.
+3. **Vanilla LLM self-corrects.** Hacking drops from 44% to 2% by 500k — the agent finds real solutions eventually.
+4. **Ensemble = too conservative.** 1% success. Zero violations because the robot barely moves. Min-aggregation killed learning.
+
 ---
 
-## Hacking Rate (TODO)
+## Results: FetchSlide-v4 (Hard)
 
-Definition from DESIGN.md:
-```
-hacking_rate = (episodes where cumulative_LLM_reward > threshold AND is_success == False) / total_episodes
-```
+| Method | 100k | 250k | 500k | Hacking 100k | Hacking 250k | Hacking 500k |
+|--------|------|------|------|-------------|-------------|-------------|
+| Vanilla LLM | 2% | 14% | 16% | 50% | 38% | 36% |
+| Eureka (PPO reward) | 0% | 4% | **40%** | 46% | 48% | 2% |
+| Eureka (SAC+HER) | 4% | 35% | **54%** | **46%** | **16%** | **0%** |
+| Ensemble (min N=3) | 6% | 17% | **46%** | **44%** | **34%** | **7%** |
 
-High hacking_rate = agent learned to game the reward without solving the task.
+**Safety metrics at 500k:**
 
-**To compute:** Need per-episode LLM reward + success labels from eval rollouts. The current metrics JSONs only have aggregated stats. Options:
-1. Re-run eval with per-episode logging (save each episode's cumulative reward + is_success)
-2. Load saved models and run a custom eval script that records per-episode data
-3. Use `mean_reward` + `success_rate` as a proxy: if mean_reward is high but success_rate is low, that indicates hacking
+| Method | Action Mag | Jerk | Action Viol | Jerk Viol | Drop Viol |
+|--------|-----------|------|-------------|-----------|-----------|
+| Vanilla LLM | 1.192 | 0.333 | 17.2% | 8.8% | 41.9% |
+| Eureka (PPO reward) | 1.264 | 0.460 | 24.5% | 14.5% | 42.6% |
+| Eureka (SAC+HER) | 1.188 | 0.469 | 14.3% | 17.2% | 39.8% |
+| Ensemble (min N=3) | 1.084 | 0.316 | 8.9% | 8.8% | 44.6% |
 
-**Proxy hacking signal from current data:**
-| Scenario @ 500k | Success | Mean Reward | Signal |
-|---|---|---|---|
-| PickAndPlace eureka | 6% | -48.1 | Low success + very neg reward → agent stuck, not hacking reward |
-| PickAndPlace vanilla | 46% | -31.9 | Higher success, better reward alignment |
-| Slide eureka | 40% | -39.1 | Moderate success via aggressive unsafe behavior |
-| Slide vanilla | 16% | -45.4 | Lower success, also low reward |
+**Key findings:**
+1. **Eureka (SAC+HER) = best performer** at 54% (+38% over vanilla). LLM reward shaping genuinely helps on hard tasks.
+2. **Transient hacking arc (the money plot):** 46% → 16% → 0%. Agent exploits the proxy early, then finds real solutions.
+3. **Safety during hacking:** Drop violations at 77% when hacking is 46% (100k), vs 40% when hacking resolves (500k).
+4. **Vanilla LLM never recovers.** Hacking stays 36-50% — the vanilla reward is too weak to guide the agent.
+5. **Eureka (PPO reward) eventually works** (40%) but took longer to overcome hacking.
+6. **Ensemble works on Slide!** 46% success at 500k — unlike PickAndPlace where it killed learning. Hacking drops 44%→34%→7% (transient arc). Min-aggregation works when the task has clearer reward signal.
 
-**Note:** The current reward values are the sparse *environment* reward (not LLM proxy reward). To properly compute hacking_rate, we need to evaluate episodes against BOTH the LLM proxy reward and the ground-truth success metric simultaneously.
+---
 
-**Next step:** Write `scripts/eval_hacking_rate.py` that:
-1. Loads saved SAC models from `models/sac_{step}/`
-2. Runs N eval episodes per model
-3. Computes per-episode: LLM proxy reward (from generated_rewards/*.py) AND is_success (from env)
-4. Calculates hacking_rate with configurable reward threshold
-5. Outputs per-scenario hacking_rate table
+## Two Failure Modes of LLM Reward Overoptimization
+
+### Mode A — Persistent Hacking (PickAndPlace, Eureka PPO reward)
+- Hacking *increases* with training: 38% → 40% → 42%
+- Success *decreases*: 12% → 6%
+- Agent finds stable exploits and never escapes
+- Safety degrades: action violations 33% → 56%
+
+### Mode B — Transient Hacking (Slide, Eureka SAC+HER)
+- Hacking *decreases* with training: 46% → 16% → 0%
+- Success *increases*: 4% → 35% → 54%
+- Agent exploits early but eventually finds genuine solutions
+- **Problem:** Safety violations during the hacking phase are severe (77% drop violations)
+- **Implication:** Even transient hacking is dangerous for real robots
+
+---
+
+## Mitigation 1: Ensemble (min, N=3) — Results
+
+| Metric | Eureka single | Ensemble | Verdict |
+|--------|--------------|----------|---------|
+| Hacking (PickAndPlace) | 0% | 0% | ✅ Same |
+| Success (PickAndPlace) | 49% | 1% | ❌ Killed learning |
+| Safety (PickAndPlace) | Moderate | Perfect | ✅ But meaningless |
+| Hacking (Reach) | 0% | 0% | ✅ Same |
+| Success (Reach) | 100% | 100% | ✅ Same |
+| Hacking (Slide) | 46%→0% | 44%→7% | ⚠️ Slower resolution |
+| Success (Slide) | 54% | 46% | ⚠️ -8% but viable |
+| Safety (Slide) | 14-17% viol | 8.9% action, 8.8% jerk | ✅ Better safety |
+
+**Verdict:** Min-aggregation is task-dependent:
+- **PickAndPlace:** Too conservative, kills learning (1% success)
+- **Slide:** Works well! 46% success with better safety profile (8.9% vs 14.3% action violations)
+- **Hypothesis:** Slide has a cleaner reward landscape — min-aggregation filters noise without destroying gradient. PickAndPlace requires more nuanced manipulation where conservative rewards starve exploration.
 
 ---
 
 ## Data Locations
 
-| Step Count | Metrics Dir | Models Dir | Notes |
-|---|---|---|---|
-| 50k (basic) | `logs/sac_smoke_50k/` | `models/sac_smoke_50k/` | All 6 scenarios, basic metrics only |
-| 50k (safety) | `logs/sac_50k/` | `models/sac_50k/` | Only FetchReach_vanilla + PickAndPlace_eureka |
-| 100k | `logs/sac_100k/` | Modal volume `cs224r-sac-results` | All 6 scenarios |
-| 250k | `logs/sac_250k/` | Modal volume `cs224r-sac-results` | All 6 scenarios |
-| 500k | `logs/sac_500k/` | `models/sac_500k/` | All 6 scenarios, local M4 |
+```
+generated_rewards/
+├── *_vanilla.py                    Vanilla LLM rewards
+├── eureka_ppo/                     Eureka + PPO iteration rewards
+├── eureka_sac/                     Eureka + SAC+HER iteration rewards
+└── ensemble/                       N=3 ensemble rewards per env
 
-### Downloading models from Modal (Sunny's Modal account)
-```bash
-conda run -n cs224r_project modal volume get cs224r-sac-results models/sac_100k/ models/sac_100k/
-conda run -n cs224r_project modal volume get cs224r-sac-results models/sac_250k/ models/sac_250k/
+logs/sac_{100k,250k,500k}/          Old pipeline results (vanilla + eureka PPO reward)
+scripts/results/eureka_sac/         New pipeline results (Eureka SAC+HER)
+scripts/results/ensemble/           Ensemble results
+results/hacking/                    Hacking rate analysis (old pipeline)
 ```
 
 ---
 
-## Training Script
-```bash
-# Run all scenarios at a given step count locally
-cd ~/Desktop/cs224r/cs224r_project
-conda run -n cs224r_project python -u scripts/sac/train_all_steps.py --steps 500000 --skip-existing
+## Next Steps
 
-# Run all scenarios on Modal (parallel)
-conda run -n cs224r_project modal run scripts/sac/train_modal.py
-
-# Edit STEP_COUNTS in scripts/sac/train_modal.py to select step counts
-```
-
----
-
-## Next Steps (as of 2026-05-25)
-
-1. **[ ] Hacking rate evaluation script** — compute per-episode LLM proxy reward vs ground-truth success
-2. **[ ] Eureka + Mitigation condition** — feed safety metrics back to GPT-4o during Eureka iterations
-3. **[ ] Sparse baseline runs** — train with original env sparse reward at same step counts for 4-condition comparison
-4. **[ ] Scaling plot** — safety metrics vs training steps {100k, 250k, 500k} for the "money figure"
-5. **[ ] Video recordings** — rollouts of hacking/unsafe behaviors (PickAndPlace eureka failing, Slide eureka slamming)
-6. **[ ] Poster layout** (due Jun 4)
-7. **[ ] Final report** (due Jun 9)
+| # | Task | Status | Deadline |
+|---|------|--------|----------|
+| 1 | Ensemble training — Slide | ✅ Done | May 28 |
+| 2 | Try mean aggregation ensemble | TODO | May 30 |
+| 3 | KL penalty mitigation (β sweep) | TODO | May 31 |
+| 4 | Physics constraints mitigation | TODO | May 31 |
+| 5 | Scaling plot (hacking + safety vs steps) | TODO | Jun 1 |
+| 6 | Video recordings of hacking behavior | TODO | Jun 2 |
+| 7 | **Poster** | TODO | **Jun 4** |
+| 8 | **Final report** | TODO | **Jun 9** |
