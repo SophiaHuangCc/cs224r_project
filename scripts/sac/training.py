@@ -1,11 +1,10 @@
 """
 SAC + HER training for LLM-generated reward functions.
 
-Mirrors `scripts/ppo/training.py`. The `llm_reward_*` scripts generate reward
-code and save it to `generated_rewards/`. This module reads those reward files
-(or accepts an in-memory reward function) and runs SAC+HER, which is a much
-better fit than PPO for sparse goal-based Fetch tasks (FetchPickAndPlace,
-FetchSlide).
+The `llm_reward_*` scripts generate reward code and save it to
+`generated_rewards/`. This module reads those reward files (or accepts an
+in-memory reward function) and runs SAC+HER, which is a much better fit than
+PPO for sparse goal-based Fetch tasks (FetchPickAndPlace, FetchSlide).
 
 HER note: the HerReplayBuffer relabels transitions with future achieved goals
 and recomputes reward by calling `env.compute_reward(achieved_goal,

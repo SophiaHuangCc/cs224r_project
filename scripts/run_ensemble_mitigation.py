@@ -30,8 +30,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from ensemble_reward import generate_eureka_ensemble_rewards, make_ensemble_reward_fn
-from llm_reward_vanilla import compile_reward_fn
-from sac.train_from_reward import train_with_checkpoints
+from sac import load_reward_fn_from_file, train_with_checkpoints
 
 # --------------------------------------------------------------------------- #
 # Config                                                                       #
@@ -72,17 +71,12 @@ def run_ensemble_mitigation(
 
         reward_dir = f"generated_rewards/ensemble/{env_id}"
 
-        # Step 1: Generate N Eureka-quality rewards
+        # Step 1: Generate N Eureka-quality rewards (saves to reward_dir)
         if skip_generation and os.path.exists(reward_dir):
-            print("  Step 1: Loading pre-generated rewards...")
-            reward_codes = []
-            for i in range(1, n + 1):
-                with open(os.path.join(reward_dir, f"reward_{i}.py")) as f:
-                    reward_codes.append(f.read())
-            print(f"  Loaded {len(reward_codes)} rewards from {reward_dir}/")
+            print("  Step 1: Using pre-generated rewards...")
         else:
             print("  Step 1: Running N independent Eureka loops (SAC+HER)...")
-            reward_codes = generate_eureka_ensemble_rewards(
+            generate_eureka_ensemble_rewards(
                 env_id=env_id,
                 n=n,
                 eureka_iters=3,
@@ -92,13 +86,16 @@ def run_ensemble_mitigation(
                 seed=seed,
             )
 
-        # Compile + create ensemble reward_fn
-        reward_fns = [compile_reward_fn(code) for code in reward_codes]
+        reward_fns = [
+            load_reward_fn_from_file(os.path.join(reward_dir, f"reward_{i}.py"))
+            for i in range(1, n + 1)
+        ]
+        print(f"  Loaded {len(reward_fns)} rewards from {reward_dir}/")
         ensemble_fn = make_ensemble_reward_fn(reward_fns, aggregation=aggregation)
 
         # Step 2: Train with checkpoints
         print(f"\n  Step 2: Training SAC+HER with ensemble ({aggregation}, N={n})...")
-        label = f"{env_id}_ensemble_n{n}_{aggregation}"
+        label = f"{env_id}_ensemble"
 
         train_with_checkpoints(
             env_id=env_id,
@@ -107,10 +104,10 @@ def run_ensemble_mitigation(
             checkpoints=checkpoints,
             seed=seed,
             eval_episodes=eval_episodes,
-            save_dir=f"models/ensemble",
-            results_dir=f"results/ensemble",
+            save_dir="models/ensemble",
+            results_dir="results/ensemble",
             label=label,
-            tensorboard_log=f"logs/ensemble_{env_id}_{aggregation}_n{n}",
+            tensorboard_log=f"logs/ensemble/{label}",
         )
 
     print(f"\n\n✅ All ensemble mitigation runs complete!")

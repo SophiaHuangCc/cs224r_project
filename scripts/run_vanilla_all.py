@@ -1,5 +1,5 @@
 """
-Run vanilla LLM reward generation for FetchPickAndPlace and FetchSlide.
+Run vanilla LLM reward generation for all three Fetch tasks.
 Generates rewards and does a quick sanity check.
 """
 import os
@@ -13,7 +13,7 @@ from llm_reward_vanilla import generate_reward_function, compile_reward_fn, Vani
 import gymnasium as gym
 import gymnasium_robotics  # noqa: F401
 
-TASKS = ["FetchPickAndPlace-v4", "FetchSlide-v4"]
+TASKS = ["FetchReach-v4", "FetchPickAndPlace-v4", "FetchSlide-v4"]
 
 for env_id in TASKS:
     print(f"\n{'='*60}")
