@@ -13,7 +13,8 @@ from openai import AzureOpenAI
 _client = None
 
 
-def _get_client():
+def get_azure_client():
+    """Return a cached AzureOpenAI client. Lazily initialized from env vars."""
     global _client
     if _client is None:
         _client = AzureOpenAI(
@@ -22,6 +23,16 @@ def _get_client():
             api_version="2024-12-01-preview",
         )
     return _client
+
+
+def strip_code_fences(text: str) -> str:
+    """Strip leading/trailing markdown ```...``` fences from an LLM response."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = "\n".join(text.split("\n")[1:])
+    if text.endswith("```"):
+        text = "\n".join(text.split("\n")[:-1])
+    return text
 
 TASK_PROMPT_TEMPLATE = """You are a reward function designer for robotic manipulation tasks.
 
@@ -92,20 +103,13 @@ def generate_reward_function(env_id: str, model: str = None) -> str:
         action_shape=action_space.shape,
     )
 
-    response = _get_client().chat.completions.create(
+    response = get_azure_client().chat.completions.create(
         model=model or DEFAULT_DEPLOYMENT,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )
 
-    reward_code = response.choices[0].message.content
-    # Strip markdown code fences if present
-    reward_code = reward_code.strip()
-    if reward_code.startswith("```"):
-        reward_code = "\n".join(reward_code.split("\n")[1:])
-    if reward_code.endswith("```"):
-        reward_code = "\n".join(reward_code.split("\n")[:-1])
-
+    reward_code = strip_code_fences(response.choices[0].message.content)
     env.close()
     return reward_code
 

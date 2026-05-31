@@ -23,7 +23,6 @@ import json
 
 import gymnasium as gym
 import gymnasium_robotics  # noqa: F401 — registers Fetch envs
-from openai import AzureOpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,25 +30,14 @@ load_dotenv()
 # Make sibling modules importable when invoked from repo root or scripts/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from llm_reward_vanilla import compile_reward_fn, get_task_config  # noqa: E402
+from llm_reward_vanilla import (  # noqa: E402
+    DEFAULT_DEPLOYMENT,
+    compile_reward_fn,
+    get_azure_client,
+    get_task_config,
+    strip_code_fences,
+)
 from sac.training import train_sac_her_with_reward  # noqa: E402
-
-# Lazily instantiated so importing this module doesn't require Azure creds.
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        _client = AzureOpenAI(
-            azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-            api_key=os.environ["AZURE_OPENAI_API_KEY"],
-            api_version="2024-12-01-preview",
-        )
-    return _client
-
-
-DEFAULT_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
 
 # --- Prompts (performance-only, no safety hints) ---
 
@@ -119,15 +107,6 @@ def analyze_performance(success_rate, mean_ep_len):
     return "\n".join(f"- {i}" for i in issues)
 
 
-def _strip_code_fences(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        text = "\n".join(text.split("\n")[1:])
-    if text.endswith("```"):
-        text = "\n".join(text.split("\n")[:-1])
-    return text
-
-
 def _ensure_return_statement(code: str) -> str:
     """Ensure all code paths have explicit return statements.
     
@@ -179,12 +158,12 @@ def eureka_loop_sac(
     )
     env.close()
 
-    response = _get_client().chat.completions.create(
+    response = get_azure_client().chat.completions.create(
         model=model_name or DEFAULT_DEPLOYMENT,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )
-    reward_code = _strip_code_fences(response.choices[0].message.content)
+    reward_code = strip_code_fences(response.choices[0].message.content)
     reward_code = _ensure_return_statement(reward_code)
 
     history = []
@@ -202,7 +181,7 @@ def eureka_loop_sac(
             reward_fn = compile_reward_fn(reward_code)
         except Exception as e:
             print(f"Compilation failed: {e}. Requesting fix...")
-            fix_response = _get_client().chat.completions.create(
+            fix_response = get_azure_client().chat.completions.create(
                 model=model_name or DEFAULT_DEPLOYMENT,
                 messages=[
                     {
@@ -212,17 +191,18 @@ def eureka_loop_sac(
                 ],
                 temperature=0.3,
             )
-            reward_code = _strip_code_fences(fix_response.choices[0].message.content)
+            reward_code = strip_code_fences(fix_response.choices[0].message.content)
             reward_fn = compile_reward_fn(reward_code)
 
-        # Train + evaluate (delegated to SAC+HER module, which uses safety.*)
+        # Train + evaluate (delegated to SAC+HER module, which uses safety.*).
+        # No save_path: per-iteration models are throwaways; final training
+        # happens later via train_local.py from the best reward.
         _, metrics = train_sac_her_with_reward(
             env_id=env_id,
             reward_fn=reward_fn,
             timesteps=timesteps_per_iter,
             seed=seed + iteration,
             eval_episodes=eval_episodes,
-            save_path=f"models/eureka_sac/{env_id}_iter{iteration+1}",
         )
 
         print(f"Results: {json.dumps(metrics, indent=2)}")
@@ -253,12 +233,12 @@ def eureka_loop_sac(
                 analysis=analysis,
             )
 
-            response = _get_client().chat.completions.create(
+            response = get_azure_client().chat.completions.create(
                 model=model_name or DEFAULT_DEPLOYMENT,
                 messages=[{"role": "user", "content": refine_prompt}],
                 temperature=0.7,
             )
-            reward_code = _strip_code_fences(response.choices[0].message.content)
+            reward_code = strip_code_fences(response.choices[0].message.content)
             reward_code = _ensure_return_statement(reward_code)
 
     # Save full history

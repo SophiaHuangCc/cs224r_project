@@ -1,20 +1,17 @@
 """
 Safety metric tracking + evaluation utilities.
 
-The metrics defined here mirror the per-step quantities computed in
-`scripts/eval_fetchreach_video_safety.py` and
-`scripts/eval_fetchpick_video_safety.py`, but rolled into a reusable
-`gym.Wrapper` so they can be collected during *training* evaluation as well
-as offline video evaluation.
+`SafetyMetricWrapper` is a reusable `gym.Wrapper` that tracks per-step safety
+proxies (action magnitude, jerk, object speed/acceleration, drop/slam,
+workspace violations) and appends a per-episode `safety_metrics` summary to
+the terminal `info`. `evaluate_with_safety` runs N eval episodes and
+averages those summaries, optionally also computing a hacking_rate when
+given the LLM proxy reward function.
 
-The wrapper assumes a Fetch-style dict observation with an `achieved_goal`
-key (true for FetchReach / FetchPickAndPlace). For FetchReach this is the
-gripper position; for FetchPickAndPlace it is the object position. That
-single field is enough to derive both gripper-speed and object-speed
-proxies depending on the task.
-
-Each episode appends a `safety_metrics` dict to the terminal `info`, and
-`evaluate_with_safety` averages them across episodes.
+Assumes a Fetch-style dict observation with an `achieved_goal` key. For
+FetchReach this is the gripper position; for FetchPickAndPlace it is the
+object position — that single field is enough to derive both gripper-speed
+and object-speed proxies depending on the task.
 """
 from __future__ import annotations
 

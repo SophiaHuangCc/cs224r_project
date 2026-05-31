@@ -1,4 +1,19 @@
-from .training import train_sac_her_with_reward, load_reward_fn_from_file
-from .train_from_reward import train_with_checkpoints
+from .training import (
+    load_reward_fn_from_file,
+    train_sac_her_with_reward,
+    train_with_checkpoints,
+)
+from .kl_training import (
+    KLConstrainedSAC,
+    compute_action_log_prob,
+    train_with_kl_checkpoints,
+)
 
-__all__ = ["train_sac_her_with_reward", "load_reward_fn_from_file", "train_with_checkpoints"]
+__all__ = [
+    "load_reward_fn_from_file",
+    "train_sac_her_with_reward",
+    "train_with_checkpoints",
+    "KLConstrainedSAC",
+    "compute_action_log_prob",
+    "train_with_kl_checkpoints",
+]

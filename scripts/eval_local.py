@@ -8,6 +8,8 @@ task actually failed (reward_fn "hacks" the proxy without solving the task).
 Safety metrics: action violation rate, jerk, object speed/acceleration violations,
 drop/slam rates — all computed by SafetyMetricWrapper during the eval rollout.
 
+For reward type "kl", evaluates all β values in KL_BETAS.
+
 Usage:
     # Evaluate all scenarios at all checkpoints
     python scripts/eval_local.py
@@ -15,6 +17,7 @@ Usage:
     # Filter
     python scripts/eval_local.py --reward-type eureka
     python scripts/eval_local.py --env FetchReach-v4 --checkpoint 500000
+    python scripts/eval_local.py --reward-type kl
 
     # Skip already-evaluated scenarios
     python scripts/eval_local.py --skip-existing
@@ -46,14 +49,15 @@ from safety import SafetyMetricWrapper, evaluate_with_safety
 
 TASKS = ["FetchReach-v4", "FetchPickAndPlace-v4", "FetchSlide-v4"]
 CHECKPOINTS = [100_000, 250_000, 500_000]
-REWARD_TYPES = ["vanilla", "eureka", "ensemble"]
+REWARD_TYPES = ["vanilla", "eureka", "ensemble", "kl"]
+KL_BETAS = [0.01, 0.1, 1.0]
 EVAL_EPISODES = 100
 
 
 def reward_config(task: str, reward_type: str) -> dict:
     if reward_type == "vanilla":
         return {"paths": [f"generated_rewards/{task}_vanilla.py"]}
-    if reward_type == "eureka":
+    if reward_type in ("eureka", "kl"):
         return {"paths": [f"generated_rewards/eureka_sac/{task}_best.py"]}
     if reward_type == "ensemble":
         return {
@@ -63,8 +67,14 @@ def reward_config(task: str, reward_type: str) -> dict:
     raise ValueError(f"Unknown reward type: {reward_type!r}")
 
 
-def model_path(task: str, reward_type: str, checkpoint: int) -> str:
-    label = f"{task}_{reward_type}"
+def scenario_labels(task: str, reward_type: str) -> list[str]:
+    """Return the label(s) trained for a given (task, reward_type). KL sweeps β."""
+    if reward_type == "kl":
+        return [f"{task}_kl_b{beta}" for beta in KL_BETAS]
+    return [f"{task}_{reward_type}"]
+
+
+def model_path(reward_type: str, label: str, checkpoint: int) -> str:
     return f"models/{reward_type}/{label}_{checkpoint // 1000}k.zip"
 
 
@@ -78,14 +88,14 @@ def load_reward(cfg: dict):
 
 # ── Evaluation ───────────────────────────────────────────────────────────────
 
-def eval_scenario(
+def eval_one(
     task: str,
     reward_type: str,
+    label: str,
     checkpoint: int,
     n_episodes: int,
     skip_existing: bool,
 ) -> dict | None:
-    label = f"{task}_{reward_type}"
     results_dir = f"results/eval/{reward_type}"
     result_path = os.path.join(results_dir, f"{label}_{checkpoint // 1000}k.json")
 
@@ -93,7 +103,7 @@ def eval_scenario(
         print(f"  Skipping {label} @ {checkpoint // 1000}k (already done)")
         return None
 
-    mpath = model_path(task, reward_type, checkpoint)
+    mpath = model_path(reward_type, label, checkpoint)
     if not os.path.exists(mpath):
         print(f"  Skipping {label} @ {checkpoint // 1000}k: model not found at {mpath}")
         return None
@@ -112,7 +122,7 @@ def eval_scenario(
     metrics = evaluate_with_safety(model, eval_env, n_episodes=n_episodes, reward_fn=reward_fn)
     eval_env.close()
 
-    metrics.update({"checkpoint": checkpoint, "task": task, "reward_type": reward_type})
+    metrics.update({"checkpoint": checkpoint, "task": task, "reward_type": reward_type, "label": label})
 
     os.makedirs(results_dir, exist_ok=True)
     with open(result_path, "w") as f:
@@ -130,8 +140,8 @@ _TABLE_HEADER = (
 _TABLE_SEP = f"  {'-'*6} {'-'*8} {'-'*8} {'-'*8} {'-'*9} {'-'*8} {'-'*8}"
 
 
-def print_scenario_table(task: str, reward_type: str, results: dict[int, dict]) -> None:
-    print(f"\n  {task}  [{reward_type}]")
+def print_table(title: str, results: dict[int, dict]) -> None:
+    print(f"\n  {title}")
     print(_TABLE_HEADER)
     print(_TABLE_SEP)
     for ckpt in sorted(results):
@@ -164,25 +174,31 @@ def main():
     tasks = TASKS if args.env == "all" else [args.env]
     reward_types = REWARD_TYPES if args.reward_type == "all" else [args.reward_type]
     checkpoints = CHECKPOINTS if args.checkpoint is None else [args.checkpoint]
-    total = len(tasks) * len(reward_types) * len(checkpoints)
 
-    print(f"\nEvaluating {total} scenario-checkpoint(s)")
+    # Count model-checkpoint pairs (KL sweeps β).
+    n_labels_per_rt = {rt: (len(KL_BETAS) if rt == "kl" else 1) for rt in reward_types}
+    total = sum(n_labels_per_rt[rt] for rt in reward_types) * len(tasks) * len(checkpoints)
+
+    print(f"\nEvaluating {total} model-checkpoint(s)")
     print(f"  Tasks:        {tasks}")
     print(f"  Reward types: {reward_types}")
     print(f"  Checkpoints:  {[f'{c // 1000}k' for c in checkpoints]}")
+    if "kl" in reward_types:
+        print(f"  KL β sweep:   {KL_BETAS}")
     print(f"  Episodes:     {args.episodes}\n")
 
     start = time.time()
 
     for task in tasks:
         for reward_type in reward_types:
-            ckpt_results: dict[int, dict] = {}
-            for ckpt in checkpoints:
-                m = eval_scenario(task, reward_type, ckpt, args.episodes, args.skip_existing)
-                if m is not None:
-                    ckpt_results[ckpt] = m
-            if ckpt_results:
-                print_scenario_table(task, reward_type, ckpt_results)
+            for label in scenario_labels(task, reward_type):
+                ckpt_results: dict[int, dict] = {}
+                for ckpt in checkpoints:
+                    m = eval_one(task, reward_type, label, ckpt, args.episodes, args.skip_existing)
+                    if m is not None:
+                        ckpt_results[ckpt] = m
+                if ckpt_results:
+                    print_table(label, ckpt_results)
 
     elapsed = time.time() - start
     print(f"\n{'='*60}")
