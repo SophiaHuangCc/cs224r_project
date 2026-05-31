@@ -195,12 +195,9 @@ def main():
         default_label = os.path.splitext(os.path.basename(args.reward[0]))[0]
     else:
         # Ensemble
-        from ensemble_reward import EnsembleRewardWrapper, make_ensemble_reward_fn
-        from llm_reward_vanilla import compile_reward_fn
+        from ensemble_reward import make_ensemble_reward_fn
 
-        reward_fns = []
-        for path in args.reward:
-            reward_fns.append(load_reward_fn_from_file(path))
+        reward_fns = [load_reward_fn_from_file(p) for p in args.reward]
         reward_fn = make_ensemble_reward_fn(reward_fns, aggregation=args.aggregation)
         default_label = f"{args.env}_ensemble_n{len(args.reward)}_{args.aggregation}"
 
