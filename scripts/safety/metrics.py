@@ -327,6 +327,7 @@ def evaluate_with_safety(
     for k, vals in safety_acc.items():
         out[k] = float(np.mean(vals)) if vals else 0.0
 
+    # TODO: clean up the code 
     # Back-compat aliases for older callers expecting these names.
     out["mean_action_mag"] = out["mean_action_norm"]
     out["mean_jerk"] = out["mean_delta_action_norm"]

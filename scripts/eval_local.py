@@ -75,7 +75,13 @@ def scenario_labels(task: str, reward_type: str) -> list[str]:
 
 
 def model_path(reward_type: str, label: str, checkpoint: int) -> str:
-    return f"models/{reward_type}/{label}_{checkpoint // 1000}k.zip"
+    base = f"models/{reward_type}/{label}_{checkpoint // 1000}k"
+    # SB3 may or may not add .zip depending on model class
+    if os.path.exists(base + ".zip"):
+        return base + ".zip"
+    if os.path.exists(base):
+        return base
+    return base + ".zip"  # default expectation
 
 
 def load_reward(cfg: dict):

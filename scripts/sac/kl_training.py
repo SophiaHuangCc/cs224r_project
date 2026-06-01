@@ -98,7 +98,13 @@ class KLConstrainedSAC(SAC):
             if self.use_sde:
                 self.actor.reset_noise()
 
-            # ── KL penalty: r' = r - β · (log π_curr(a|s) - log π_ref(a|s)) ──
+            # ── KL penalty: r' = r - β · clip(log π_curr(a|s) - log π_ref(a|s)) ──
+            # Clipping is critical: the reference policy is near-deterministic
+            # (trained SAC converges to very low std), so log π_ref(a|s) can be
+            # astronomically negative for any off-mode action, making the raw
+            # KL term blow up to 10^3-10^5. We clip per-step KL to a sane range
+            # so the penalty stays informative without overwhelming the proxy reward.
+            KL_CLIP_MAX = 20.0  # ~e^20 ≈ 5e8 likelihood ratio — generous ceiling
             rewards = replay_data.rewards
             if self.reference_model is not None and self.kl_beta > 0.0:
                 with th.no_grad():
@@ -109,6 +115,7 @@ class KLConstrainedSAC(SAC):
                         self.reference_model, replay_data.observations, replay_data.actions
                     )
                     kl_step = (log_p_curr - log_p_ref).reshape(-1, 1)
+                    kl_step = th.clamp(kl_step, min=-KL_CLIP_MAX, max=KL_CLIP_MAX)
                     rewards = rewards - self.kl_beta * kl_step
                     kl_step_means.append(float(kl_step.mean().item()))
             # ─────────────────────────────────────────────────────────────────
@@ -248,7 +255,13 @@ def train_with_kl_checkpoints(
 
         model_path = os.path.join(save_dir, f"{label}_{checkpoint//1000}k")
         model.save(model_path)
-        print(f"  Saved: {model_path}")
+        # Ensure .zip extension for consistency with eval_local.py expectations
+        import glob
+        saved_file = model_path if os.path.exists(model_path) else model_path + ".zip"
+        if os.path.exists(model_path) and not model_path.endswith(".zip"):
+            os.rename(model_path, model_path + ".zip")
+            saved_file = model_path + ".zip"
+        print(f"  Saved: {saved_file}")
 
         print(f"  Evaluating ({eval_episodes} episodes)...")
         eval_env = SafetyMetricWrapper(gym.make(env_id))

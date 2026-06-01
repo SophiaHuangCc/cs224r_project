@@ -36,6 +36,7 @@ _PROJECT_DIR = os.path.dirname(_SCRIPTS_DIR)
 sys.path.insert(0, _SCRIPTS_DIR)
 os.chdir(_PROJECT_DIR)
 
+import gymnasium as gym  # noqa: E402
 from stable_baselines3 import SAC  # noqa: E402
 
 from sac import (  # noqa: E402
@@ -147,7 +148,11 @@ def _run_kl(task: str, skip_existing: bool) -> None:
         print(f"{'='*60}")
 
         # Load a fresh reference per β to avoid any cross-run device/state issues.
-        reference_model = SAC.load(ref_path)
+        # Must pass env= because the reference was trained with HerReplayBuffer,
+        # and SB3 asserts env is not None when loading HER-based models.
+        ref_env = gym.make(task)
+        reference_model = SAC.load(ref_path, env=ref_env)
+        ref_env.close()
 
         train_with_kl_checkpoints(
             env_id=task,
