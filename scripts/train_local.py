@@ -84,7 +84,7 @@ def _load_reward_fn(cfg: dict):
 
 def _run_standard(task: str, reward_type: str, skip_existing: bool) -> None:
     label = f"{task}_{reward_type}"
-    results_dir = f"results/{reward_type}"
+    results_dir = f"results/train/{reward_type}"
     models_dir = f"models/{reward_type}"
     summary_path = os.path.join(results_dir, f"{label}_summary.json")
 
