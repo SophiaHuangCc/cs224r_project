@@ -9,6 +9,9 @@ Reward types:
   kl       — Eureka reward + KL penalty against a sparse-reward reference policy.
              Sweeps β over [0.01, 0.1, 1.0] → 3 models per task.
              Requires: python scripts/train_reference.py (one-time setup).
+  physics  — Eureka reward + soft physics-constraint penalty (action norm,
+             jerk, drop, table-slam, object speed/accel). Per-env thresholds
+             from safety.PHYSICS_PRESETS. Sweeps λ over [0.1, 1.0, 10.0].
 
 Usage:
     # Run all scenarios
@@ -43,26 +46,28 @@ from sac import (  # noqa: E402
     load_reward_fn_from_file,
     train_with_checkpoints,
     train_with_kl_checkpoints,
+    train_with_physics_checkpoints,
 )
 from ensemble_reward import make_ensemble_reward_fn  # noqa: E402
 
-# ── Experiment config ────────────────────────────────────────────────────────
+# ── Experiment config ─────────────────────────────────────────────────────────────
 
 TASKS = ["FetchReach-v4", "FetchPickAndPlace-v4", "FetchSlide-v4"]
 CHECKPOINTS = [100_000, 250_000, 500_000]
 TIMESTEPS = 500_000
 SEED = 42
 EVAL_EPISODES = 100
-REWARD_TYPES = ["vanilla", "eureka", "ensemble", "kl"]
+REWARD_TYPES = ["vanilla", "eureka", "ensemble", "kl", "physics"]
 KL_BETAS = [0.01, 0.1, 1.0]
+PHYSICS_COEFS = [0.1, 1.0, 10.0]
 
 
 def reward_config(task: str, reward_type: str) -> dict:
     """Return reward file paths (and optional ensemble aggregation) for a scenario."""
     if reward_type == "vanilla":
         return {"paths": [f"generated_rewards/{task}_vanilla.py"]}
-    if reward_type in ("eureka", "kl"):
-        # KL uses the Eureka reward as the proxy; the KL constraint is the mitigation.
+    if reward_type in ("eureka", "kl", "physics"):
+        # KL / physics use the Eureka reward as the proxy; the constraint is the mitigation.
         return {"paths": [f"generated_rewards/eureka_sac/{task}_best.py"]}
     if reward_type == "ensemble":
         return {
@@ -170,9 +175,49 @@ def _run_kl(task: str, skip_existing: bool) -> None:
         )
 
 
+def _run_physics(task: str, skip_existing: bool) -> None:
+    """Sweep PHYSICS_COEFS — one training run per λ. Mitigation 6."""
+    cfg = reward_config(task, "physics")
+    missing = [p for p in cfg["paths"] if not os.path.exists(p)]
+    if missing:
+        print(f"  Skipping {task}_physics: reward file(s) not found: {missing}")
+        return
+
+    for coef in PHYSICS_COEFS:
+        label = f"{task}_physics_c{coef}"
+        results_dir = "results/physics"
+        summary_path = os.path.join(results_dir, f"{label}_summary.json")
+
+        if skip_existing and os.path.exists(summary_path):
+            print(f"  Skipping {label} (already done)")
+            continue
+
+        print(f"\n{'='*60}")
+        print(f"  {label}")
+        print(f"  Physics coef: {coef}")
+        print(f"  Checkpoints: {[f'{c//1000}k' for c in CHECKPOINTS]}")
+        print(f"{'='*60}")
+
+        train_with_physics_checkpoints(
+            env_id=task,
+            reward_fn=_load_reward_fn(cfg),
+            coef=coef,
+            timesteps=TIMESTEPS,
+            checkpoints=CHECKPOINTS,
+            seed=SEED,
+            eval_episodes=EVAL_EPISODES,
+            save_dir="models/physics",
+            results_dir=results_dir,
+            label=label,
+            tensorboard_log=f"logs/physics/{label}",
+        )
+
+
 def run_scenario(task: str, reward_type: str, skip_existing: bool) -> None:
     if reward_type == "kl":
         _run_kl(task, skip_existing)
+    elif reward_type == "physics":
+        _run_physics(task, skip_existing)
     else:
         _run_standard(task, reward_type, skip_existing)
 
@@ -192,11 +237,9 @@ def main():
     tasks = TASKS if args.env == "all" else [args.env]
     reward_types = REWARD_TYPES if args.reward_type == "all" else [args.reward_type]
 
-    # KL runs N_TASKS × len(KL_BETAS) jobs; other reward types run N_TASKS jobs.
-    total = sum(
-        len(KL_BETAS) if rt == "kl" else 1
-        for rt in reward_types
-    ) * len(tasks)
+    # KL / physics sweep their respective coefficient lists; others run once per task.
+    per_rt_runs = {"kl": len(KL_BETAS), "physics": len(PHYSICS_COEFS)}
+    total = sum(per_rt_runs.get(rt, 1) for rt in reward_types) * len(tasks)
 
     print(f"\nRunning {total} training run(s)")
     print(f"  Tasks:        {tasks}")
@@ -204,6 +247,8 @@ def main():
     print(f"  Checkpoints:  {[f'{c//1000}k' for c in CHECKPOINTS]}")
     if "kl" in reward_types:
         print(f"  KL β sweep:   {KL_BETAS}")
+    if "physics" in reward_types:
+        print(f"  Physics λ:    {PHYSICS_COEFS}")
     print()
 
     start = time.time()
