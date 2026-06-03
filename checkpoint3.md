@@ -175,27 +175,7 @@ FetchReach stays at 100% success under every setting (saturated control).
 
 ---
 
-## 6. On measuring hacking
-
-We initially used a "hacking rate" = fraction of episodes whose proxy reward
-exceeds the run's **own median** while failing. Across all 81 runs this equals
-≈ ½·(1 − success rate) to within 4 points (corr with success = **−0.95**):
-e.g. a not-yet-trained agent on the trivially-solvable Reach task would score
-~50% "hacking" at 0% success. The metric re-encodes the success rate rather than
-measuring exploitation, and mislabels training collapses (ensemble PickAndPlace:
-48% "hacking" despite the policy freezing and earning proxy reward far *below*
-success level).
-
-**Reward–success correlation** avoids both failure modes: it has no threshold,
-is independent of the success rate, and cleanly separates the two axes —
-*low success + high r* = undertrained/collapsed (e.g. Physics PickAndPlace,
-r=0.99), *low r* = genuinely hackable reward (vanilla Slide, r=0.28). The lone
-misalignment in the whole study is the single-shot Slide reward.
-*(Pre-correction median-split tables are archived in `checkpoint_old.md`.)*
-
----
-
-## 7. Takeaways
+## 6. Takeaways
 
 1. **LLM rewards are well-aligned here, with one exception.** Only the
    *single-shot* Slide reward is hackable (r = 0.28); Eureka's iterated reward
@@ -211,6 +191,9 @@ misalignment in the whole study is the single-shot Slide reward.
 5. **Measurement matters.** The headline depends entirely on the metric: a
    median-split "hacking rate" would have manufactured a 40–50% hacking story
    that is really just the inverse success rate.
+
+## 7. Future work
+TODO
 
 > **Caveat (single seed).** All runs use seed 42; mid-training success can swing
 > (e.g. KL β=0.01 Reach dips to 2% at 250k before recovering to 100%).
