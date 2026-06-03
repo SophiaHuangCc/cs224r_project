@@ -45,12 +45,15 @@ def num(x, d=3):
 # (reward_type, label_suffix, display) per task
 def methods_for(task):
     return [
-        ("vanilla",  f"{task}_vanilla",   "Vanilla (hand reward)"),
-        ("eureka",   f"{task}_eureka",    "Eureka (LLM reward)"),
-        ("ensemble", f"{task}_ensemble",  "+ Ensemble (min, N=3)"),
-        ("kl",       f"{task}_kl_b0.01",  "+ KL β=0.01"),
-        ("kl",       f"{task}_kl_b0.1",   "+ KL β=0.1"),
-        ("kl",       f"{task}_kl_b1.0",   "+ KL β=1.0"),
+        ("vanilla",  f"{task}_vanilla",       "Vanilla (hand reward)"),
+        ("eureka",   f"{task}_eureka",        "Eureka (LLM reward)"),
+        ("ensemble", f"{task}_ensemble",      "+ Ensemble (min, N=3)"),
+        ("kl",       f"{task}_kl_b0.01",      "+ KL β=0.01"),
+        ("kl",       f"{task}_kl_b0.1",       "+ KL β=0.1"),
+        ("kl",       f"{task}_kl_b1.0",       "+ KL β=1.0"),
+        ("physics",  f"{task}_physics_c0.1",  "+ Physics c=0.1"),
+        ("physics",  f"{task}_physics_c1.0",  "+ Physics c=1.0"),
+        ("physics",  f"{task}_physics_c10.0", "+ Physics c=10.0"),
     ]
 
 
@@ -158,27 +161,37 @@ def main():
               f"{num(m.get('mean_action_norm'))} | {num(m.get('mean_delta_action_norm'))} |")
     w("")
 
-    # ---- Physics-constraint mitigation (Reach only) ----
-    w("## 4. Physics-constraint mitigation (FetchReach only)\n")
-    w("Soft penalty on action-norm / jerk violations appended to the Eureka "
-      "reward. **Caveat:** only FetchReach was run, which is trivially solved "
-      "(100% success) and exhibits no hacking — so this sweep tests safety "
-      "shaping, not hacking mitigation. Hacking here uses the *training-time* "
-      "metric.\n")
-    phys = sorted(glob.glob("results/physics/*_summary.json"))
-    if phys:
-        w("| Coef | Checkpoint | Success | Hacking | Act viol | Jerk viol | Mean act norm | Mean jerk |")
-        w("|---|---|---|---|---|---|---|---|")
-        for p in phys:
-            s = load(p)
-            coef = s["config"]["physics_coef"]
-            for ck in ["100k", "250k", "500k"]:
-                m = s["results_by_checkpoint"].get(ck)
-                if not m:
-                    continue
-                w(f"| {coef} | {ck} | {pct(m['success_rate'])} | {pct(m.get('hacking_rate'))} | "
-                  f"{pct(m.get('action_violation_rate'))} | {pct(m.get('jerk_violation_rate'))} | "
-                  f"{num(m.get('mean_action_norm'))} | {num(m.get('mean_delta_action_norm'))} |")
+    # ---- Physics-constraint mitigation coefficient ablation ----
+    w("## 4. Physics-constraint mitigation — coefficient ablation\n")
+    w("Mitigation 6: a soft penalty on action-norm / jerk (and drop-height / "
+      "table-slam where defined) violations is appended to the Eureka reward "
+      "during training; evaluation uses the unmodified task env. The per-method "
+      "rows above (§1–§3) already include `+ Physics c=0.1/1.0/10.0` for every "
+      "task; this section adds the coefficient's effect across checkpoints and "
+      "the tripwire thresholds used.\n")
+    w("Per-coefficient tripwire thresholds (from the training configs):\n")
+    phys_sum = sorted(glob.glob("results/physics/*_summary.json"))
+    seen_thr = {}
+    for p in phys_sum:
+        s = load(p)
+        thr = s["config"].get("thresholds", {})
+        key = json.dumps(thr, sort_keys=True)
+        seen_thr.setdefault(key, thr)
+    for thr in seen_thr.values():
+        nonnull = {k: v for k, v in thr.items() if v is not None}
+        w(f"- `{nonnull}`")
+    w("")
+    w("Success / hacking across checkpoints (100k / 250k / 500k):\n")
+    for task in TASKS:
+        w(f"### {SHORT[task]} — physics sweep\n")
+        w("| Coef | 100k | 250k | 500k |")
+        w("|---|---|---|---|")
+        for coef in ["0.1", "1.0", "10.0"]:
+            cells = []
+            for ck in CKPTS:
+                m = eval_metrics("physics", f"{task}_physics_c{coef}", ck)
+                cells.append(f"{pct(m['success_rate'])} / {pct(m.get('hacking_rate'))}" if m else "—")
+            w(f"| c={coef} | {cells[0]} | {cells[1]} | {cells[2]} |")
         w("")
 
     # ---- KL reference policy ----
@@ -229,6 +242,12 @@ def main():
         w("4. **The defensible win is on success and safety, not hacking:** KL "
           "β=0.01 lifts PickAndPlace success well above the Eureka baseline while "
           "keeping hacking near zero; on Slide it also cuts safety violations.\n")
+        w("5. **Physics constraints trade success for safety, and the coefficient "
+          "matters a lot.** On Slide, c=1.0 keeps success ≈ Eureka (62% vs 64%) "
+          "while roughly halving action/jerk violations; but c=10.0 collapses "
+          "success to 0% on PickAndPlace and Slide (over-constrained), and even "
+          "c≥1.0 cripples PickAndPlace (3% success). It is a safety-shaping knob, "
+          "not a hacking fix — hacking was already ~0%.\n")
 
     md = "\n".join(out) + "\n"
     with open(args.out, "w") as f:

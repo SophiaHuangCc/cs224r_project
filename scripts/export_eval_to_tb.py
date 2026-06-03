@@ -37,6 +37,8 @@ def main() -> None:
 
     for run_dir, entries in runs.items():
         run_dir.mkdir(parents=True, exist_ok=True)
+        for old in run_dir.glob("events.out.tfevents.*"):
+            old.unlink()
         writer = SummaryWriter(log_dir=str(run_dir))
         for step, data in sorted(entries, key=lambda x: x[0]):
             for key, val in data.items():

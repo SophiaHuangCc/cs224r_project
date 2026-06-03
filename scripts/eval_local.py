@@ -50,8 +50,9 @@ from safety import SafetyMetricWrapper, evaluate_with_safety, compute_hacking_me
 
 TASKS = ["FetchReach-v4", "FetchPickAndPlace-v4", "FetchSlide-v4"]
 CHECKPOINTS = [100_000, 250_000, 500_000]
-REWARD_TYPES = ["vanilla", "eureka", "ensemble", "kl"]
+REWARD_TYPES = ["vanilla", "eureka", "ensemble", "kl", "physics"]
 KL_BETAS = [0.01, 0.1, 1.0]
+PHYSICS_COEFS = ["0.1", "1.0", "10.0"]
 EVAL_EPISODES = 100
 
 # Percentile of successful-episode proxy rewards used as the "success-level
@@ -63,7 +64,9 @@ HACKING_SUCCESS_PERCENTILE = 25.0
 def reward_config(task: str, reward_type: str) -> dict:
     if reward_type == "vanilla":
         return {"paths": [f"generated_rewards/{task}_vanilla.py"]}
-    if reward_type in ("eureka", "kl"):
+    if reward_type in ("eureka", "kl", "physics"):
+        # Physics-constraint policies are scored against the same LLM proxy
+        # reward as Eureka; the physics penalty only shapes training.
         return {"paths": [f"generated_rewards/eureka_sac/{task}_best.py"]}
     if reward_type == "ensemble":
         return {
@@ -74,9 +77,12 @@ def reward_config(task: str, reward_type: str) -> dict:
 
 
 def scenario_labels(task: str, reward_type: str) -> list[str]:
-    """Return the label(s) trained for a given (task, reward_type). KL sweeps β."""
+    """Return the label(s) trained for a given (task, reward_type). KL sweeps β,
+    physics sweeps the constraint coefficient."""
     if reward_type == "kl":
         return [f"{task}_kl_b{beta}" for beta in KL_BETAS]
+    if reward_type == "physics":
+        return [f"{task}_physics_c{coef}" for coef in PHYSICS_COEFS]
     return [f"{task}_{reward_type}"]
 
 
@@ -230,8 +236,11 @@ def main():
     reward_types = REWARD_TYPES if args.reward_type == "all" else [args.reward_type]
     checkpoints = CHECKPOINTS if args.checkpoint is None else [args.checkpoint]
 
-    # Count model-checkpoint pairs (KL sweeps β).
-    n_labels_per_rt = {rt: (len(KL_BETAS) if rt == "kl" else 1) for rt in reward_types}
+    # Count model-checkpoint pairs (KL sweeps β, physics sweeps coef).
+    n_labels_per_rt = {
+        rt: (len(KL_BETAS) if rt == "kl" else len(PHYSICS_COEFS) if rt == "physics" else 1)
+        for rt in reward_types
+    }
     total = sum(n_labels_per_rt[rt] for rt in reward_types) * len(tasks) * len(checkpoints)
 
     print(f"\nEvaluating {total} model-checkpoint(s)")
