@@ -6,4 +6,3 @@ __pycache__
 logs/
 models/
 .claude/
-make_figures.py
