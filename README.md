@@ -9,27 +9,7 @@ Sunny Yuan & Sophia Huang
 > 500k-step SAC+HER checkpoint, 100 evaluation episodes, seed 42.
 
 ---
-
-## TL;DR
-
-| Method (Eureka + …) | PickAndPlace success | Slide success | Notes |
-|---|---:|---:|---|
-| Eureka baseline | 52% | 64% | iterated LLM reward |
-| **+ KL β=0.01** | **93%** | 58% | soft trust region — best mitigation |
-| + Ensemble (min, N=3) | 4% | 52% | optimization collapse, not anti-hack |
-| + Physics c=1.0 | 3% | 62% | safety win on Slide, collapse on Pick |
-
-- Only the **single-shot LLM reward on Slide** is actually misaligned
-  (proxy↔success r = 0.28); Eureka's iteration fixes it (r = 0.87, success
-  14% → 64%). Iterative reward design is itself the most effective anti-hacking
-  measure we observed.
-- KL anchoring to a sparse-reward reference yields **+41 pts of PickAndPlace
-  success** and **5× fewer Slide action violations**, alignment intact.
-- Physics constraints are a *task-dependent* safety knob: ≈ unchanged success
-  on Slide with halved violations, but crush contact-rich PickAndPlace.
-
 Full results, ablations, and analysis: [`checkpoint3.md`](checkpoint3.md).
-Design rationale & metric definitions: [`DESIGN.md`](DESIGN.md).
 
 ---
 
