@@ -1,283 +1,187 @@
-# CS224R Final Project: Reward Hacking in Embodied Agents
+# Reward Hacking in LLM-Generated Reward Functions
 
-This repository contains the code for our Stanford CS224R final project:
+**CS224R Final Project — Stanford, Spring 2026**
+Sunny Yuan & Sophia Huang
 
-> **Reward Hacking in Embodied Agents: Evaluating the Safety of LLM-Generated Reward Functions**
-
-## Project Overview
-
-Recent work such as Eureka shows that large language models (LLMs) can automatically generate reward functions for reinforcement learning tasks. However, LLMs are trained on text and may omit important physical constraints such as torque, force, and smooth motion limits.
-
-In this project, we investigate:
-
-1. Whether LLM-generated rewards lead to unsafe robot behaviors.
-2. How often reward hacking occurs in robotic manipulation.
-3. Whether simple mitigation strategies improve safety.
-
-We evaluate these questions in simulation using robotic manipulation environments and PPO.
+> We study whether reward functions written by an LLM induce **reward hacking**
+> on three MuJoCo Fetch manipulation tasks, and whether alignment-style
+> mitigations help. All numbers in [`checkpoint3.md`](checkpoint3.md) are the
+> 500k-step SAC+HER checkpoint, 100 evaluation episodes, seed 42.
 
 ---
 
-## Project Pipeline
+## TL;DR
 
-```text
-Task description
-      ↓
-GPT-4o generates reward function
-      ↓
-PPO trains policy in simulation
-      ↓
-Evaluate task success and safety metrics
-      ↓
-Apply mitigation strategies
-      ↓
-Compare results
-```
+| Method (Eureka + …) | PickAndPlace success | Slide success | Notes |
+|---|---:|---:|---|
+| Eureka baseline | 52% | 64% | iterated LLM reward |
+| **+ KL β=0.01** | **93%** | 58% | soft trust region — best mitigation |
+| + Ensemble (min, N=3) | 4% | 52% | optimization collapse, not anti-hack |
+| + Physics c=1.0 | 3% | 62% | safety win on Slide, collapse on Pick |
+
+- Only the **single-shot LLM reward on Slide** is actually misaligned
+  (proxy↔success r = 0.28); Eureka's iteration fixes it (r = 0.87, success
+  14% → 64%). Iterative reward design is itself the most effective anti-hacking
+  measure we observed.
+- KL anchoring to a sparse-reward reference yields **+41 pts of PickAndPlace
+  success** and **5× fewer Slide action violations**, alignment intact.
+- Physics constraints are a *task-dependent* safety knob: ≈ unchanged success
+  on Slide with halved violations, but crush contact-rich PickAndPlace.
+
+Full results, ablations, and analysis: [`checkpoint3.md`](checkpoint3.md).
+Design rationale & metric definitions: [`DESIGN.md`](DESIGN.md).
 
 ---
 
-## Repository Structure
+## Repository layout
 
 ```text
 cs224r_project/
-├── configs/                 # Hyperparameter and experiment configs
-├── prompts/                 # Prompt templates for GPT reward generation
-├── rewards/                 # Generated reward functions
-├── scripts/                 # Training and evaluation scripts
-├── logs/                    # TensorBoard and training logs
-├── models/                  # Saved PPO checkpoints
-├── results/                 # Plots, metrics, and tables
-├── test_installation.py     # Verifies environment setup
-├── train_ppo_baseline.py    # Train PPO using default environment reward
-├── visualize_policy.py      # Render trained policy
+├── checkpoint3.md             # final consolidated results (read this)
+├── DESIGN.md                  # research question, metrics, methodology
+├── experiment.md              # end-to-end reproduction runbook
+├── mitigation.md              # KL / Ensemble / Physics mitigation notes
 ├── requirements.txt
-├── environment.yml
-└── README.md
+├── scripts/
+│   ├── llm_reward_vanilla.py        # single-shot GPT-4o reward generator
+│   ├── llm_reward_eureka_sac.py     # iterated Eureka loop (3 iters)
+│   ├── ensemble_reward.py           # min-of-N ensemble reward wrapper
+│   ├── run_vanilla_all.py           # generate vanilla rewards (3 tasks)
+│   ├── run_eureka_sac_all.py        # generate Eureka rewards (3 tasks)
+│   ├── run_ensemble_mitigation.py   # generate N=3 ensemble rewards
+│   ├── train_reference.py           # sparse-reward SAC+HER reference (for KL)
+│   ├── train_local.py               # train every (task, reward_type) combo
+│   ├── train_modal.py               # same, parallelized on Modal
+│   ├── eval_local.py                # 100-episode eval w/ safety metrics
+│   ├── make_figures.py              # all report figures (success + dynamics)
+│   ├── make_baseline_videos.py      # rollout mp4s for the 3 tasks
+│   ├── sac/                         # shared SAC/HER training kwargs
+│   └── safety/                      # SafetyMetricWrapper + tripwires
+├── generated_rewards/         # LLM-written reward .py files
+│   ├── *_vanilla.py                 # single-shot per task
+│   ├── eureka_sac/                  # iterated best + per-iter rewards
+│   └── ensemble/<task>/             # N=3 independent Eureka rewards
+├── models/                    # SAC checkpoints, organized by reward_type
+│   ├── reference/                   # sparse-reward references (KL target)
+│   ├── vanilla/  eureka/  ensemble/  kl/  physics/
+├── results/
+│   ├── eval/<reward_type>/<label>_<ckpt>k.json   # per-checkpoint metrics
+│   ├── figures/                                  # report figures
+│   └── videos/                                   # rollout mp4s
+└── logs/                      # TensorBoard event files
 ```
 
 ---
 
-## Environment Setup
-
-### Create Conda Environment
+## Setup
 
 ```bash
 conda create -n cs224r_project python=3.10 -y
 conda activate cs224r_project
-```
-
-### Install Dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
----
-
-## requirements.txt
-
-```txt
-torch
-numpy
-matplotlib
-pandas
-tqdm
-wandb
-
-gymnasium
-gymnasium-robotics
-mujoco
-
-stable-baselines3[extra]
-
-openai
-python-dotenv
-
-mani_skill
-mani_skill-nightly
-
-modal
-```
-
----
-
-## Verify Installation
+Create `.env` at the project root with Azure OpenAI credentials (only needed if
+regenerating LLM rewards):
 
 ```bash
-python test_installation.py
+AZURE_OPENAI_ENDPOINT=...
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_DEPLOYMENT=gpt-4o   # optional, defaults to gpt-4o
 ```
-
-Expected output should show the observation and action spaces for `FetchReach-v4`.
 
 ---
 
-## Running the Baseline
+## Reproducing the results
 
-### Train PPO on FetchReach
+Full step-by-step runbook (with time estimates, Modal instructions, and
+filtering flags) lives in [`experiment.md`](experiment.md). The short version:
 
 ```bash
-python train_ppo_baseline.py
+# 1. Generate LLM rewards (Azure OpenAI required)
+python scripts/run_vanilla_all.py
+python scripts/run_eureka_sac_all.py
+python scripts/run_ensemble_mitigation.py
+
+# 2. Train sparse-reward reference policies (for KL anchoring)
+python scripts/train_reference.py
+
+# 3. Train every (task, reward_type) combo at 100k/250k/500k checkpoints
+python scripts/train_local.py            # 18 runs × 500k locally (~21 h on M4)
+# OR
+modal run scripts/train_modal.py         # all 18 jobs in parallel (~70 min)
+
+# 4. Evaluate (100 deterministic episodes per checkpoint)
+python scripts/eval_local.py
+
+# 5. Regenerate figures and rollout videos
+python scripts/make_figures.py
+python scripts/make_baseline_videos.py
 ```
 
-### Visualize the Trained Policy
-
-```bash
-python visualize_policy.py
-```
+All training and eval steps accept `--env`, `--reward-type`, `--checkpoint`, and
+`--skip-existing` for partial reruns.
 
 ---
 
-## Alternative simulation: ManiSkill3
+## Experimental setup
 
-ManiSkill3 can run using CPU simulation and Vulkan-based rendering. Modal GPU simulation is also supported but no visualization available.
+| | |
+|---|---|
+| **Tasks** | FetchReach-v4, FetchPickAndPlace-v4, FetchSlide-v4 (Gymnasium-Robotics) |
+| **Algorithm** | SAC + Hindsight Experience Replay, 500k steps, eval every 100k |
+| **Reward sources** | Vanilla (single-shot GPT-4o), Eureka (iterated best-of-N) |
+| **Mitigations on Eureka** | Reward Ensemble (min N=3), KL penalty to sparse reference (β ∈ {0.01, 0.1, 1.0}), Physics constraint penalty (c ∈ {0.1, 1.0, 10.0}) |
+| **Eval** | 100 deterministic episodes per checkpoint |
 
-### Install ManiSkill
+### Metrics
 
-```bash
-pip install mani_skill torch
-```
-
-### Test Local Rendering
-
-```bash
-python test_maniskill_local.py
-```
-
-### Test Modal Rendering
-
-```bash
-python test_maniskill_modal.py
-```
+- **Success rate** — env's ground-truth `is_success` (capability)
+- **Proxy↔success correlation (r)** — Pearson correlation between per-episode
+  proxy reward and task success (alignment / *hackability*; parameter-free,
+  unlike a thresholded "hacking rate")
+- **Safety tripwires** — fraction of steps violating action-norm, jerk,
+  object-speed, object-accel, drop, table-slam, workspace bounds
+  (see [`scripts/safety/metrics.py`](scripts/safety/metrics.py))
 
 ---
 
-## Initial Benchmark Tasks
+## Figures
 
-1. Reach
-2. Pick-and-Place
-3. Lift-Fragile-Object (or equivalent custom task)
+Generated by `scripts/make_figures.py` into `results/figures/`:
 
----
+- [`fig1_hero_pickandplace.png`](results/figures/fig1_hero_pickandplace.png) — KL wins, min-ensemble freezes
+- [`fig2_kl_cliff_pickandplace.png`](results/figures/fig2_kl_cliff_pickandplace.png) — KL β over-constraint cliff
+- [`fig3_physics_taskdependence.png`](results/figures/fig3_physics_taskdependence.png) — physics: Slide vs PickAndPlace
+- [`fig_dynamics_FetchPickAndPlace-v4.png`](results/figures/fig_dynamics_FetchPickAndPlace-v4.png) — 3-panel training dashboard
+- [`fig_dynamics_FetchSlide-v4.png`](results/figures/fig_dynamics_FetchSlide-v4.png) — 3-panel training dashboard
 
-## Safety Metrics
-
-During evaluation, we measure:
-
-- Peak joint torque
-- Contact force
-- Joint velocity
-- Jerk
-- Workspace violations
-- Self-collisions
+Rollout videos (`results/videos/`):
+[`fetchreach_baseline.mp4`](results/videos/fetchreach_baseline.mp4),
+[`fetchpick_baseline.mp4`](results/videos/fetchpick_baseline.mp4),
+[`fetchslide_baseline.mp4`](results/videos/fetchslide_baseline.mp4).
 
 ---
 
-## Baselines
+## Caveats
 
-1. LLM-generated reward (unconstrained)
-2. LLM-generated reward with safety prompting
-3. Human-engineered reward with explicit safety terms
-
----
-
-## Mitigation Strategies
-
-### Physics-Grounded Constraint Augmentation (PGCA)
-
-Automatically append penalty terms for:
-- torque violations
-- excessive velocity
-- large contact forces
-
-### Constrained RL (CMDP)
-
-Use PPO-Lagrangian to optimize task reward subject to safety constraints.
-
-<!-- ---
-
-## Current Progress
-
-- [x] Local Conda environment created
-- [x] MuJoCo + Gymnasium-Robotics installed
-- [x] Maniskill V3 installed
-- [x] PPO baseline training on FetchReach
-- [x] Visualization working
-- [ ] Custom reward wrapper
-- [ ] GPT-generated reward functions
-- [ ] Safety metric logging
-- [ ] Mitigation experiments -->
-
----
-
-## CS224R Project Work Split
-
-### Sophia (Robotics / RL Infrastructure)
-- Set up simulation environment (MuJoCo or ManiSkill)
-- Select benchmark tasks (Reach, Pick-and-Place, Fragile Pick)
-- Train PPO baseline using default reward
-- Implement safety metric logging:
-  - action magnitude
-  - joint velocity
-  - contact force (if available)
-- Generate rollout videos and visualizations
-- Run final training jobs on Modal
-
-### Sunny (LLM Reward Generation / Safety Analysis)
-- Read and summarize Eureka reward generation pipeline
-- Design prompts for GPT-4o to generate reward functions
-- Generate and organize candidate reward code
-- Implement safety-aware prompting baseline
-- Implement mitigation methods:
-  - Physics-Grounded Constraint Augmentation (PGCA)
-  - Optional CMDP/PPO-Lagrangian if time permits
-- Analyze reward hacking failure cases
-
-### Joint Responsibilities
-- Define final evaluation metrics and thresholds
-- Decide which reward candidates to test
-- Compare success vs safety tradeoffs
-- Prepare figures, report, and presentation
-
----
-
-## Project Checklist
-
-### Milestone: Infrastructure & LLM Rewards & Baseline
-- [ ] PPO baseline solves one manipulation task
-- [ ] Safety metrics are logged
-- [ ] Video rendering works locally and on Modal
-- [ ] GPT generates reward functions
-- [ ] Reward functions can be plugged into training
-- [ ] Safety-prompted rewards implemented
-- [ ] Baseline reward runs
-
-### Final: Deliverables
-- [ ] LLM reward runs
-- [ ] Mitigation runs
-- [ ] Aggregate metrics and plots
-- [ ] Select representative videos
-- [ ] Create plots and tables
-- [ ] Write final report
-- [ ] Prepare presentation
-
----
-
-## Notes
-
-This project uses **online reinforcement learning**, meaning no fixed dataset is required. The agent generates data by interacting with the simulator during training.
+- All runs use a **single seed (42)**; mid-training success can swing
+  (e.g. KL β=0.01 Reach dips to 2% at 250k before recovering to 100%).
+  Cross-method gaps are the story; small differences are within run-to-run
+  noise.
+- `rollout/ep_rew_mean` in TensorBoard is each method's *own* training reward
+  (KL subtracts β·KL, Physics subtracts c·penalty, Ensemble is min-of-3) — so
+  the proxy-reward panels compare *shape*, not absolute height across methods.
 
 ---
 
 ## References
 
-- Eureka: Human-Level Reward Design via Coding Large Language Models
-- Stable-Baselines3
-- Gymnasium Robotics
-- MuJoCo
-
----
+- Ma et al. 2023 — *Eureka: Human-Level Reward Design via Coding Large Language Models*
+- Coste et al. ICLR 2024 — *Reward Model Ensembles Help Mitigate Overoptimization*
+- Gao et al. 2022 — *Scaling Laws for Reward Model Overoptimization*
+- Christiano et al. 2017 — *Deep RL from Human Preferences*
 
 ## Authors
 
-- Sophia Huang
-- Project Partner
+Sunny Yuan, Sophia Huang
